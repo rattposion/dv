@@ -11,13 +11,12 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useEstoque } from "@/contexts/EstoqueContext";
 import { useReset } from "@/contexts/ResetContext";
-import { useInventario } from "@/contexts/InventarioContext";
-import { useHistorico } from "@/contexts/HistoricoContext";
 import { useFuncionario } from "@/contexts/FuncionarioContext";
 import { useEquipamento } from "@/contexts/EquipamentoContext";
 import { useSupabaseProducao } from "@/hooks/useSupabaseProducao";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
 
 export default function Producao() {
   const [macs, setMacs] = useState<string[]>([]);
@@ -26,8 +25,6 @@ export default function Producao() {
   const { toast } = useToast();
   const { estoque } = useEstoque();
   const { addReset, resets } = useReset();
-  const { caixas, addCaixa } = useInventario();
-  const { addOperacao } = useHistorico();
   const { funcionarios } = useFuncionario();
   const { equipamentos } = useEquipamento();
   const { registrarProducao, verificarEstoqueRecebimento, loading: loadingProducao } = useSupabaseProducao();
@@ -36,15 +33,31 @@ export default function Producao() {
   const [numeroCaixa, setNumeroCaixa] = useState("");
   const [funcionarioSelecionado, setFuncionarioSelecionado] = useState("");
   const [equipamentoSelecionado, setEquipamentoSelecionado] = useState("");
+  const [selectedEquipmentProducao, setSelectedEquipmentProducao] = useState<any>(null);
   
   // Estados para o modal de reset
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [selectedEquipamento, setSelectedEquipamento] = useState("");
+  const [selectedEquipmentReset, setSelectedEquipmentReset] = useState<any>(null);
   const [resetQuantidade, setResetQuantidade] = useState("");
   const [resetResponsavel, setResetResponsavel] = useState("");
   const [resetObservacao, setResetObservacao] = useState("");
   const [showResetReport, setShowResetReport] = useState(false);
   const [lastResetData, setLastResetData] = useState<any>(null);
+
+  // Auto-sync equipment selection for production
+  useEffect(() => {
+    if (selectedEquipmentProducao) {
+      setEquipamentoSelecionado(selectedEquipmentProducao.nome);
+    }
+  }, [selectedEquipmentProducao]);
+
+  // Auto-sync equipment selection for reset
+  useEffect(() => {
+    if (selectedEquipmentReset) {
+      setSelectedEquipamento(selectedEquipmentReset.nome);
+    }
+  }, [selectedEquipmentReset]);
 
   // Carregar estoque de recebimento quando equipamento mudar
   useEffect(() => {
@@ -199,6 +212,7 @@ export default function Producao() {
 
     // Limpar campos
     setSelectedEquipamento("");
+    setSelectedEquipmentReset(null);
     setResetQuantidade("");
     setResetResponsavel("");
     setResetObservacao("");
@@ -266,42 +280,18 @@ export default function Producao() {
       return; // O hook já mostrou o toast de erro
     }
 
-    // Criar nova caixa no contexto local (para compatibilidade)
-    const novaCaixa = {
-      id: numeroCaixa,
-      equipamento: equipamentoSelecionado,
-      modelo: equipamentoSelecionado,
-      quantidade: macs.length,
-      responsavel: funcionarioSelecionado,
-      status: "Disponível",
-      macs: macs
-    };
-
-    // Salvar no contexto do inventário
-    addCaixa(novaCaixa);
-
-    // Registrar no histórico como entrada
-    addOperacao({
-      tipo: 'entrada',
-      usuario: funcionarioSelecionado,
-      caixaId: numeroCaixa,
-      equipamento: equipamentoSelecionado,
-      modelo: equipamentoSelecionado,
-      quantidade: macs.length,
-      observacao: `Caixa criada via produção com ${macs.length} equipamentos - Consumiu ${macs.length} unidades do estoque de recebimento`
-    });
+    // Limpar formulário
+    setNumeroCaixa("");
+    setFuncionarioSelecionado("");
+    setEquipamentoSelecionado("");
+    setSelectedEquipmentProducao(null);
+    setMacs([]);
 
     // Atualizar estoque disponível
     setEstoqueRecebimentoDisponivel(prev => ({
       ...prev,
       [equipamentoSelecionado]: (prev[equipamentoSelecionado] || 0) - macs.length
     }));
-
-    // Limpar formulário
-    setNumeroCaixa("");
-    setFuncionarioSelecionado("");
-    setEquipamentoSelecionado("");
-    setMacs([]);
   };
   return (
     <DashboardLayout>
@@ -320,7 +310,7 @@ export default function Producao() {
           </TabsList>
 
           <TabsContent value="registro" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-1">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -357,29 +347,18 @@ export default function Producao() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Equipamento</Label>
-                    <Select value={equipamentoSelecionado} onValueChange={setEquipamentoSelecionado}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o equipamento" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {equipamentos.map((equipamento) => (
-                          <SelectItem key={equipamento.id} value={equipamento.nome}>
-                            {equipamento.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {equipamentoSelecionado && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <AlertTriangle className="h-4 w-4 text-orange-500" />
-                        <span className="text-sm text-muted-foreground">
-                          Estoque de recebimento disponível: {estoqueRecebimentoDisponivel[equipamentoSelecionado] || 0} unidades
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  <EquipmentSelector
+                    onSelect={setSelectedEquipmentProducao}
+                    selectedEquipment={selectedEquipmentProducao}
+                  />
+                  {equipamentoSelecionado && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <AlertTriangle className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm text-muted-foreground">
+                        Estoque de recebimento disponível: {estoqueRecebimentoDisponivel[equipamentoSelecionado] || 0} unidades
+                      </span>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>MACs dos Equipamentos</Label>
@@ -472,39 +451,6 @@ export default function Producao() {
                   )}
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Caixas Disponíveis no Inventário</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {caixas.map((caixa) => (
-                      <div key={caixa.id} className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="font-medium">{caixa.id}</div>
-                          <Badge variant={caixa.status === "Disponível" ? "default" : "outline"}>
-                            {caixa.status}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <div>Equipamento: {caixa.equipamento}</div>
-                          <div>Quantidade: {caixa.quantidade} equipamentos</div>
-                          <div>Responsável: {caixa.responsavel}</div>
-                        </div>
-                        <div className="mt-3 p-2 bg-muted/30 rounded text-xs">
-                          <div className="font-medium mb-1">MACs dos Equipamentos:</div>
-                          <div className="space-y-1">
-                            {caixa.macs.map((mac) => (
-                              <div key={mac}>• {mac}</div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
 
@@ -522,21 +468,10 @@ export default function Producao() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Equipamento/Modelo *</Label>
-                    <Select value={selectedEquipamento} onValueChange={setSelectedEquipamento}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o equipamento" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {equipamentos.map((equipamento) => (
-                          <SelectItem key={equipamento.id} value={equipamento.nome}>
-                            {equipamento.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <EquipmentSelector
+                    onSelect={setSelectedEquipmentReset}
+                    selectedEquipment={selectedEquipmentReset}
+                  />
 
                   <div className="space-y-2">
                     <Label>Quantidade *</Label>

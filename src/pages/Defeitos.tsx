@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertTriangle, Plus, Calendar, User, Search, FileWarning, Camera, ExternalLink, Package } from "lucide-react";
+import { AlertTriangle, Plus, Calendar, User, Search, FileWarning, Camera, ExternalLink, Package, X, Monitor } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -15,6 +15,9 @@ import { ptBR } from "date-fns/locale";
 import { FileUploadDefeitos } from "@/components/defeitos/FileUploadDefeitos";
 import { useSupabaseRecebimentos } from "@/hooks/useSupabaseRecebimentos";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
+import { useFuncionario } from "@/contexts/FuncionarioContext";
+import { useEquipamento } from "@/contexts/EquipamentoContext";
 
 interface Defeito {
   id: string;
@@ -61,8 +64,11 @@ export default function Defeitos() {
   const [filtroModelo, setFiltroModelo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState("");
   const [estoqueRecebimento, setEstoqueRecebimento] = useState<{[modelo: string]: number}>({});
+  const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
   const { toast } = useToast();
   const { diminuirEstoqueRecebimento, getEstoqueDisponivel } = useSupabaseRecebimentos();
+  const { funcionariosAprovados } = useFuncionario();
+  const { equipamentos } = useEquipamento();
 
   const [novoDefeito, setNovoDefeito] = useState({
     equipamento: "",
@@ -78,6 +84,21 @@ export default function Defeitos() {
     descricao_defeito: "",
     macs: [] as string[]
   });
+
+  // Auto-calculate quantity based on selected equipment's MACs
+  useEffect(() => {
+    if (selectedEquipment) {
+      const equipmentData = equipamentos.find(eq => eq.id === selectedEquipment.id);
+      const macCount = equipmentData?.mac ? 1 : 0; // For now, assuming 1 MAC per equipment
+      setNovoDefeito(prev => ({
+        ...prev,
+        equipamento: selectedEquipment.nome,
+        modelo: selectedEquipment.modelo,
+        quantidade: macCount || 1,
+        macs: equipmentData?.mac ? [equipmentData.mac] : []
+      }));
+    }
+  }, [selectedEquipment, equipamentos]);
 
   useEffect(() => {
     fetchDefeitos();
@@ -181,6 +202,7 @@ export default function Defeitos() {
         descricao_defeito: "",
         macs: []
       });
+      setSelectedEquipment(null);
 
       setIsDialogOpen(false);
       fetchDefeitos();
@@ -218,73 +240,52 @@ export default function Defeitos() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Queimados/Defeitos</h1>
-          <p className="text-muted-foreground">Registro de equipamentos com problemas</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Queimados/Defeitos</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Registro de equipamentos com problemas</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-primary hover:bg-gradient-primary/90">
+            <Button className="bg-gradient-primary hover:bg-gradient-primary/90 w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Registrar Defeito
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto mx-2">
             <DialogHeader>
-              <DialogTitle>Registrar Novo Defeito</DialogTitle>
+              <DialogTitle className="text-lg sm:text-xl">Registrar Novo Defeito</DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="equipamento">Equipamento *</Label>
-                  <Input
-                    id="equipamento"
-                    value={novoDefeito.equipamento}
-                    onChange={(e) => setNovoDefeito(prev => ({ ...prev, equipamento: e.target.value }))}
-                    placeholder="Nome do equipamento"
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <EquipmentSelector
+                    onSelect={setSelectedEquipment}
+                    selectedEquipment={selectedEquipment}
                   />
                 </div>
                 
-                <div>
-                  <Label htmlFor="modelo">Modelo *</Label>
-                  <Select 
-                    value={novoDefeito.modelo} 
-                    onValueChange={(value) => {
-                      setNovoDefeito(prev => ({ ...prev, modelo: value }));
-                      setModeloSelecionado(value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o modelo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(estoqueRecebimento).map((modelo) => (
-                        <SelectItem key={modelo} value={modelo}>
-                          {modelo} ({estoqueRecebimento[modelo]} disponíveis)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="quantidade">Quantidade *</Label>
+                <div className="sm:col-span-2 sm:grid sm:grid-cols-2 sm:gap-4 space-y-4 sm:space-y-0">
+                  <div>
+                  <Label htmlFor="quantidade">Quantidade (Auto-calculado)</Label>
                   <Input
                     id="quantidade"
                     type="number"
-                    min="1"
                     value={novoDefeito.quantidade}
-                    onChange={(e) => setNovoDefeito(prev => ({ ...prev, quantidade: parseInt(e.target.value) || 0 }))}
+                    disabled
+                    className="bg-muted"
                     placeholder="0"
                   />
-                </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Calculado automaticamente baseado nos MACs do equipamento
+                  </p>
+                  </div>
                 
-                <div>
+                  <div>
                   <Label htmlFor="tipo_defeito">Tipo de Defeito *</Label>
                   <Select 
                     value={novoDefeito.tipo_defeito} 
@@ -301,19 +302,30 @@ export default function Defeitos() {
                       ))}
                     </SelectContent>
                   </Select>
+                  </div>
                 </div>
                 
-                <div>
+                <div className="sm:col-span-2 sm:grid sm:grid-cols-2 sm:gap-4 space-y-4 sm:space-y-0">
+                  <div>
                   <Label htmlFor="responsavel">Responsável *</Label>
-                  <Input
-                    id="responsavel"
-                    value={novoDefeito.responsavel}
-                    onChange={(e) => setNovoDefeito(prev => ({ ...prev, responsavel: e.target.value }))}
-                    placeholder="Nome do responsável"
-                  />
-                </div>
+                  <Select 
+                    value={novoDefeito.responsavel} 
+                    onValueChange={(value) => setNovoDefeito(prev => ({ ...prev, responsavel: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o funcionário" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {funcionariosAprovados.map((funcionario) => (
+                        <SelectItem key={funcionario.id} value={funcionario.nome}>
+                          {funcionario.nome} - {funcionario.funcao}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  </div>
                 
-                <div>
+                  <div>
                   <Label htmlFor="data_registro">Data do Registro</Label>
                   <Input
                     id="data_registro"
@@ -321,6 +333,7 @@ export default function Defeitos() {
                     value={novoDefeito.data_registro}
                     onChange={(e) => setNovoDefeito(prev => ({ ...prev, data_registro: e.target.value }))}
                   />
+                  </div>
                 </div>
               </div>
               
@@ -364,22 +377,79 @@ export default function Defeitos() {
                 />
               </div>
 
+              {/* MAC Addresses */}
               <div>
-                <Label htmlFor="macs">MACs dos Equipamentos</Label>
-                <Textarea
-                  id="macs"
-                  value={novoDefeito.macs?.join('\n') || ''}
-                  onChange={(e) => {
-                    const macsArray = e.target.value.split('\n').map(mac => mac.trim()).filter(mac => mac);
-                    setNovoDefeito(prev => ({ ...prev, macs: macsArray }));
-                  }}
-                  placeholder="Digite os MACs dos equipamentos (um por linha)"
-                  rows={3}
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Digite um MAC por linha. Exemplo: AA:BB:CC:DD:EE:FF
-                </p>
+                <Label htmlFor="macs">MAC Addresses dos Equipamentos</Label>
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                      id="new-mac"
+                      placeholder="Digite o MAC address (ex: 00:11:22:33:44:55)"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const input = e.target as HTMLInputElement;
+                          const mac = input.value.trim();
+                          if (mac && !novoDefeito.macs.includes(mac)) {
+                            setNovoDefeito(prev => ({ 
+                              ...prev, 
+                              macs: [...prev.macs, mac] 
+                            }));
+                            input.value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={() => {
+                        const input = document.getElementById('new-mac') as HTMLInputElement;
+                        const mac = input.value.trim();
+                        if (mac && !novoDefeito.macs.includes(mac)) {
+                          setNovoDefeito(prev => ({ 
+                            ...prev, 
+                            macs: [...prev.macs, mac] 
+                          }));
+                          input.value = '';
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  {/* Lista de MACs adicionados */}
+                  {novoDefeito.macs.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {novoDefeito.macs.map((mac, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                          <Monitor className="h-3 w-3" />
+                          <span className="font-mono text-xs">{mac}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => {
+                              setNovoDefeito(prev => ({
+                                ...prev,
+                                macs: prev.macs.filter((_, i) => i !== index)
+                              }));
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-muted-foreground">
+                    Digite um MAC address e pressione Enter ou clique no botão + para adicionar
+                  </p>
+                </div>
               </div>
 
               <FileUploadDefeitos
@@ -398,11 +468,11 @@ export default function Defeitos() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <div className="flex flex-col sm:flex-row justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
                   Cancelar
                 </Button>
-                <Button onClick={salvarDefeito} disabled={loading}>
+                <Button onClick={salvarDefeito} disabled={loading} className="w-full sm:w-auto">
                   {loading ? "Salvando..." : "Salvar Defeito"}
                 </Button>
               </div>
@@ -420,11 +490,11 @@ export default function Defeitos() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {Object.entries(estoqueRecebimento).map(([modelo, quantidade]) => (
-              <div key={modelo} className="bg-card p-4 rounded-lg border">
-                <div className="text-sm font-medium">{modelo}</div>
-                <div className="text-2xl font-bold text-primary">{quantidade}</div>
+              <div key={modelo} className="bg-card p-3 sm:p-4 rounded-lg border">
+                <div className="text-xs sm:text-sm font-medium truncate" title={modelo}>{modelo}</div>
+                <div className="text-xl sm:text-2xl font-bold text-primary">{quantidade}</div>
                 <div className="text-xs text-muted-foreground">unidades disponíveis</div>
               </div>
             ))}
@@ -438,7 +508,7 @@ export default function Defeitos() {
       </Card>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {TIPOS_DEFEITO.map((tipo) => (
           <Card key={tipo.value} className="bg-gradient-subtle border-accent/20">
             <CardHeader className="pb-3">
@@ -452,8 +522,8 @@ export default function Defeitos() {
                 </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">
+            <CardContent className="pt-3">
+              <div className="text-xl sm:text-2xl font-bold text-primary">
                 {getTotalPorTipo(tipo.value)} unidades
               </div>
             </CardContent>
@@ -470,7 +540,7 @@ export default function Defeitos() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="filtro_tipo">Tipo de Defeito</Label>
               <Select value={filtroTipo} onValueChange={setFiltroTipo}>
@@ -546,7 +616,7 @@ export default function Defeitos() {
               {defeito.descricao_defeito && (
                 <div className="mb-4">
                   <h4 className="font-medium text-sm mb-2">Descrição do Defeito:</h4>
-                  <p className="text-muted-foreground">{defeito.descricao_defeito}</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm break-words">{defeito.descricao_defeito}</p>
                 </div>
               )}
               
@@ -574,18 +644,16 @@ export default function Defeitos() {
                   </a>
                 </div>
               )}
-
+              
               {defeito.macs && defeito.macs.length > 0 && (
                 <div className="mb-4">
-                  <h4 className="font-medium text-sm mb-2">MACs dos Equipamentos:</h4>
-                  <div className="space-y-1">
+                  <h4 className="font-medium text-xs sm:text-sm mb-2">MAC Addresses:</h4>
+                  <div className="flex flex-wrap gap-1">
                     {defeito.macs.map((mac, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded-md">
-                        <span className="text-sm font-mono">{mac}</span>
-                        <Badge variant="outline" className="text-xs">
-                          #{index + 1}
-                        </Badge>
-                      </div>
+                      <Badge key={index} variant="outline" className="font-mono text-xs break-all">
+                        <Monitor className="h-3 w-3 mr-1 flex-shrink-0" />
+                        {mac}
+                      </Badge>
                     ))}
                   </div>
                 </div>
@@ -593,8 +661,8 @@ export default function Defeitos() {
               
               {defeito.observacoes && (
                 <div>
-                  <h4 className="font-medium text-sm mb-2">Observações Adicionais:</h4>
-                  <p className="text-muted-foreground">{defeito.observacoes}</p>
+                  <h4 className="font-medium text-xs sm:text-sm mb-2">Observações Adicionais:</h4>
+                  <p className="text-muted-foreground text-xs sm:text-sm break-words">{defeito.observacoes}</p>
                 </div>
               )}
             </CardContent>

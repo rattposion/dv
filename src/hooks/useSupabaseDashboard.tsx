@@ -48,20 +48,15 @@ export const useSupabaseDashboard = () => {
         estoquesPorModelo[item.modelo] = item.quantidade_disponivel;
       });
 
-      // 3. Buscar estoque disponível baseado na produção (equipamentos com MACs registrados)
-      const { data: producaoTotal, error: producaoError } = await supabase
-        .from('producao_diaria')
-        .select('modelo, quantidade_equipamentos');
+      // 3. Buscar caixas do inventário para calcular estoque disponível real
+      const { data: caixasInventario, error: caixasError } = await supabase
+        .from('caixas_inventario')
+        .select('quantidade');
 
-      if (producaoError) throw producaoError;
+      if (caixasError) throw caixasError;
 
-      // Calcular estoque disponível por modelo baseado na produção
-      const estoquesProducao: { [modelo: string]: number } = {};
-      (producaoTotal || []).forEach(item => {
-        estoquesProducao[item.modelo] = (estoquesProducao[item.modelo] || 0) + item.quantidade_equipamentos;
-      });
-
-      const estoqueDisponivel = Object.values(estoquesProducao).reduce((total, quantidade) => total + quantidade, 0);
+      // Estoque disponível = soma de todas as quantidades das caixas no inventário
+      const estoqueDisponivel = (caixasInventario || []).reduce((total, caixa) => total + caixa.quantidade, 0);
 
       // 4. Buscar total de equipamentos com problemas/defeitos
       const { data: defeitos, error: defeitosError } = await supabase
@@ -118,6 +113,13 @@ export const useSupabaseDashboard = () => {
         event: '*',
         schema: 'public',
         table: 'producao_diaria'
+      }, () => {
+        fetchDashboardStats();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'caixas_inventario'
       }, () => {
         fetchDashboardStats();
       })

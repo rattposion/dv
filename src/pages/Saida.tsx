@@ -1,9 +1,11 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Package, TruckIcon as Truck, AlertTriangle, Calendar, User, Split } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Search, Package, TruckIcon as Truck, AlertTriangle, Calendar, User, Split, Plus, X, Info, Copy } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,13 +13,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { useInventario } from "@/contexts/InventarioContext";
 import { useEstoque } from "@/contexts/EstoqueContext";
 import { useHistorico } from "@/contexts/HistoricoContext";
-import { useInventarioEstoqueSync } from "@/hooks/useInventarioEstoqueSync";
+import { useFuncionario } from "@/contexts/FuncionarioContext";
+import { FileUploadSaida } from "@/components/saida/FileUploadSaida";
+import { useSupabaseRMA } from "@/hooks/useSupabaseRMA";
+import { useSupabaseCaixasInventario } from "@/hooks/useSupabaseCaixasInventario";
+import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
+import { FileUploadRMA } from "@/components/rma/FileUploadRMA";
 
 export default function Saida() {
   const [selectedCaixa, setSelectedCaixa] = useState("");
+  const [selectedCaixas, setSelectedCaixas] = useState<string[]>([]);
   const [selectedCaixaSeparacao, setSelectedCaixaSeparacao] = useState("");
   const [tipoSelecaoMac, setTipoSelecaoMac] = useState("caixa"); // "caixa" ou "manual"
   const [responsavelSaida, setResponsavelSaida] = useState("");
@@ -26,34 +33,58 @@ export default function Saida() {
   const [searchTerm, setSearchTerm] = useState("");
   const [macsParaVerificar, setMacsParaVerificar] = useState("");
   const [dadosEquipamentos, setDadosEquipamentos] = useState("");
+  const [anexosSaida, setAnexosSaida] = useState<string[]>([]);
   const [resultadoProcessamento, setResultadoProcessamento] = useState<{
     grupos: { [key: string]: string[] };
     naoEncontrados: string[];
   }>({ grupos: {}, naoEncontrados: [] });
+
+  // Estados para RMA
+  const [showRMADialog, setShowRMADialog] = useState(false);
+  const [selectedEquipmentRMA, setSelectedEquipmentRMA] = useState<any>(null);
+  const [rmaData, setRmaData] = useState({
+    equipamento: "",
+    modelo: "",
+    mac_address: "",
+    origem_equipamento: "",
+    destino_envio: "",
+    defeito_relatado: "",
+    tecnico_responsavel: "",
+    observacoes: "",
+    nota_fiscal: "",
+  });
+  const [macsRMA, setMacsRMA] = useState<string[]>([]);
+  const [currentMacRMA, setCurrentMacRMA] = useState("");
+  const [anexosRMA, setAnexosRMA] = useState<string[]>([]);
   const { toast } = useToast();
-  const { caixas: caixasDisponiveis, removeCaixa } = useInventario();
+  const { caixas: caixasDisponiveis, removeCaixa, loading: loadingCaixas } = useSupabaseCaixasInventario();
   const { diminuirEstoque, getEstoquePorModelo } = useEstoque();
   const { addOperacao } = useHistorico();
-  
-  // Sincroniza inventário com estoque automaticamente
-  useInventarioEstoqueSync();
+  const { funcionariosAprovados } = useFuncionario();
+  const { createRMA, loading: rmaLoading } = useSupabaseRMA();
+
+  const caixasSelecionadasData = caixasDisponiveis.filter(c => selectedCaixas.includes(c.id));
+  const totalQuantidadeSelecionada = caixasSelecionadasData.reduce((total, caixa) => total + caixa.quantidade, 0);
 
   const filteredCaixas = caixasDisponiveis.filter(caixa =>
-    caixa.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    caixa.numero_caixa.toLowerCase().includes(searchTerm.toLowerCase()) ||
     caixa.equipamento.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleRegistrarSaida = () => {
-    if (!selectedCaixa || !responsavelSaida || !destino) {
+    // Verificar se há pelo menos uma caixa selecionada (qualquer dos métodos)
+    const caixaSelecionadaId = selectedCaixa || (selectedCaixas.length > 0 ? selectedCaixas[0] : null);
+    
+    if (!caixaSelecionadaId || !responsavelSaida || !destino) {
       toast({
         title: "Campos obrigatórios",
-        description: "Preencha todos os campos obrigatórios (motivo é opcional)",
+        description: "Selecione uma caixa e preencha todos os campos obrigatórios",
         variant: "destructive",
       });
       return;
     }
 
-    const caixa = caixasDisponiveis.find(c => c.id === selectedCaixa);
+    const caixa = caixasDisponiveis.find(c => c.id === caixaSelecionadaId);
     if (!caixa) {
       toast({
         title: "Erro",
@@ -86,35 +117,38 @@ export default function Saida() {
       return;
     }
 
-    // Registrar a operação no histórico
+    // Registrar a operação no histórico com anexos
     addOperacao({
       tipo: "saida",
       usuario: responsavelSaida,
-      caixaId: selectedCaixa,
+      caixaId: caixaSelecionadaId,
       equipamento: caixa.equipamento,
       modelo: caixa.modelo,
       quantidade: caixa.quantidade,
       destino,
-      observacao: motivo
+      observacao: motivo,
+      anexos: anexosSaida.length > 0 ? anexosSaida : undefined
     });
 
     // Remove a caixa do inventário
-    removeCaixa(selectedCaixa);
+    removeCaixa(caixaSelecionadaId);
 
     const novoEstoque = getEstoquePorModelo(caixa.modelo);
     toast({
       title: "Saída registrada",
-      description: `Saída da caixa ${selectedCaixa} registrada. Estoque ${caixa.modelo}: ${novoEstoque}`,
+      description: `Saída da caixa ${caixaSelecionadaId} registrada. Estoque ${caixa.modelo}: ${novoEstoque}`,
     });
 
     // Limpar formulário
     setSelectedCaixa("");
+    setSelectedCaixas([]);
     setResponsavelSaida("");
     setDestino("");
     setMotivo("");
+    setAnexosSaida([]);
   };
 
-  const caixaSelecionada = caixasDisponiveis.find(caixa => caixa.id === selectedCaixa);
+  const caixaSelecionada = caixasDisponiveis.find(caixa => caixa.id === selectedCaixa || selectedCaixas.includes(caixa.id));
   const caixaSeparacaoSelecionada = caixasDisponiveis.find(caixa => caixa.id === selectedCaixaSeparacao);
 
   // Lista única de equipamentos
@@ -272,6 +306,138 @@ export default function Saida() {
     });
   };
 
+  // Funções para RMA
+  const isValidMacFormat = (mac: string) => {
+    const macWithoutColons = mac.replace(/:/g, '');
+    const macPattern = /^[0-9A-Fa-f]{12}$/;
+    return macPattern.test(macWithoutColons);
+  };
+
+  const formatMac = (mac: string) => {
+    const cleanMac = mac.replace(/:/g, '').toUpperCase();
+    return cleanMac.replace(/(.{2})/g, '$1:').slice(0, -1);
+  };
+
+  const addMacAddressRMA = (macInput: string) => {
+    const cleanMac = macInput.trim();
+    
+    if (!cleanMac) {
+      toast({
+        title: "Erro",
+        description: "Digite um endereço MAC válido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isValidMacFormat(cleanMac)) {
+      toast({
+        title: "Formato inválido",
+        description: "MAC deve ter 12 caracteres hexadecimais (ex: C85A9FC7B9C0 ou C8:5A:9F:C7:B9:C0)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formattedMac = formatMac(cleanMac);
+
+    if (macsRMA.includes(formattedMac)) {
+      toast({
+        title: "MAC duplicado",
+        description: "Este endereço MAC já foi adicionado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setMacsRMA(prev => [...prev, formattedMac]);
+    setCurrentMacRMA("");
+    
+    toast({
+      title: "MAC adicionado",
+      description: `Endereço ${formattedMac} adicionado com sucesso`,
+    });
+  };
+
+  const removeMacRMA = (macToRemove: string) => {
+    setMacsRMA(prev => prev.filter(mac => mac !== macToRemove));
+    toast({
+      title: "MAC removido",
+      description: `Endereço ${macToRemove} removido`,
+    });
+  };
+
+  const handleEquipmentSelectRMA = (equipment: any) => {
+    setSelectedEquipmentRMA(equipment);
+    setRmaData(prev => ({
+      ...prev,
+      equipamento: equipment.nome,
+      modelo: equipment.modelo || "",
+    }));
+  };
+
+  const handleCreateRMA = async () => {
+    if (!rmaData.equipamento || !rmaData.defeito_relatado || !rmaData.origem_equipamento || !rmaData.destino_envio) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await createRMA({
+        equipamento: rmaData.equipamento,
+        modelo: rmaData.modelo,
+        mac_address: macsRMA.join(", "),
+        origem_equipamento: rmaData.origem_equipamento,
+        destino_envio: rmaData.destino_envio,
+        defeito_relatado: rmaData.defeito_relatado,
+        status: "Aberto",
+        data_abertura: new Date().toISOString().split('T')[0],
+        tecnico_responsavel: rmaData.tecnico_responsavel,
+        observacoes: rmaData.observacoes,
+        nota_fiscal: rmaData.nota_fiscal,
+        anexos_ids: anexosRMA,
+      });
+
+      // Reset form
+      setRmaData({
+        equipamento: "",
+        modelo: "",
+        mac_address: "",
+        origem_equipamento: "",
+        destino_envio: "",
+        defeito_relatado: "",
+        tecnico_responsavel: "",
+        observacoes: "",
+        nota_fiscal: "",
+      });
+      setMacsRMA([]);
+      setAnexosRMA([]);
+      setSelectedEquipmentRMA(null);
+      setShowRMADialog(false);
+    } catch (error) {
+      console.error("Erro ao criar RMA:", error);
+    }
+  };
+
+  const handleMultipleBoxSelection = (caixaId: string) => {
+    console.log("Selecionando caixa múltipla:", caixaId);
+    // Limpar seleção simples quando usar seleção múltipla
+    setSelectedCaixa("");
+    
+    setSelectedCaixas(prev => {
+      const newSelection = prev.includes(caixaId) 
+        ? prev.filter(id => id !== caixaId)
+        : [...prev, caixaId];
+      
+      console.log("Nova seleção múltipla:", newSelection);
+      return newSelection;
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -280,6 +446,13 @@ export default function Saida() {
             <h1 className="text-3xl font-bold text-foreground">Gerenciar Saídas</h1>
             <p className="text-muted-foreground">Registre a saída de caixas e faça separações</p>
           </div>
+          <Button 
+            onClick={() => setShowRMADialog(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Criar Novo RMA
+          </Button>
         </div>
 
         <Tabs defaultValue="saida" className="space-y-6">
@@ -309,19 +482,50 @@ export default function Saida() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="caixa">Caixa *</Label>
-                    <Select value={selectedCaixa} onValueChange={setSelectedCaixa}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma caixa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {caixasDisponiveis.map((caixa) => (
-                          <SelectItem key={caixa.id} value={caixa.id}>
-                            {caixa.id} - {caixa.equipamento}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="caixa">
+                      Caixas para Saída * 
+                      {selectedCaixas.length > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          {selectedCaixas.length} selecionada{selectedCaixas.length > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </Label>
+                    <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-3">
+                      {loadingCaixas ? (
+                        <div className="text-center py-4 text-muted-foreground">
+                          Carregando caixas...
+                        </div>
+                      ) : caixasDisponiveis.length === 0 ? (
+                        <div className="text-center py-4 text-muted-foreground">
+                          Nenhuma caixa encontrada no inventário
+                        </div>
+                      ) : (
+                        caixasDisponiveis.map((caixa) => (
+                          <div 
+                            key={caixa.id}
+                           className={`p-3 border rounded-lg cursor-pointer transition-all duration-200 ${
+                               selectedCaixas.includes(caixa.id) 
+                                 ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20" 
+                                 : "border-border hover:border-primary/50 hover:bg-muted/30"
+                             }`}
+                            onClick={() => handleMultipleBoxSelection(caixa.id)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-medium">{caixa.numero_caixa}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {caixa.equipamento} - {caixa.modelo}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-medium">{caixa.quantidade}</div>
+                                <div className="text-xs text-muted-foreground">equipamentos</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
 
                   {/* Informações da caixa selecionada no formulário */}
@@ -348,12 +552,18 @@ export default function Saida() {
 
                   <div className="space-y-2">
                     <Label htmlFor="responsavel">Responsável pela Saída *</Label>
-                    <Input
-                      id="responsavel"
-                      value={responsavelSaida}
-                      onChange={(e) => setResponsavelSaida(e.target.value)}
-                      placeholder="Nome do responsável"
-                    />
+                    <Select value={responsavelSaida} onValueChange={setResponsavelSaida}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o responsável" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border border-border shadow-lg">
+                        {funcionariosAprovados.map((funcionario) => (
+                          <SelectItem key={funcionario.id} value={funcionario.nome}>
+                            {funcionario.nome} - {funcionario.funcao}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">
@@ -377,10 +587,16 @@ export default function Saida() {
                     />
                   </div>
 
-                  <Button 
+                  <FileUploadSaida
+                    onFilesChange={setAnexosSaida}
+                    existingFiles={anexosSaida}
+                    maxFiles={3}
+                  />
+
+                  <Button
                     onClick={handleRegistrarSaida}
                     className="w-full"
-                    disabled={!selectedCaixa || !responsavelSaida || !destino}
+                    disabled={!selectedCaixa && selectedCaixas.length === 0 || !responsavelSaida || !destino}
                   >
                     <Truck className="h-4 w-4 mr-2" />
                     Registrar Saída
@@ -388,71 +604,110 @@ export default function Saida() {
                 </CardContent>
               </Card>
 
-              {/* Informações da Caixa Selecionada */}
+              {/* Informações das Caixas Selecionadas */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
-                    Detalhes da Caixa
+                    Detalhes das Caixas
                   </CardTitle>
                   <CardDescription>
-                    Informações da caixa selecionada
+                    Informações das caixas selecionadas
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {caixaSelecionada ? (
+                  {selectedCaixas.length > 0 ? (
                     <div className="space-y-4">
-                      <div className="grid gap-4">
-                        <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      {/* Resumo Total */}
+                      <div className="p-4 bg-primary/10 rounded-lg">
+                        <div className="grid grid-cols-2 gap-4 text-center">
                           <div>
-                            <p className="font-semibold">{caixaSelecionada.id}</p>
-                            <p className="text-sm text-muted-foreground">{caixaSelecionada.equipamento}</p>
+                            <div className="text-2xl font-bold text-primary">{selectedCaixas.length}</div>
+                            <div className="text-xs text-muted-foreground">Caixas Selecionadas</div>
                           </div>
-                          <Badge variant={caixaSelecionada.status === "Disponível" ? "default" : caixaSelecionada.status === "Em Uso" ? "secondary" : "destructive"}>
-                            {caixaSelecionada.status}
-                          </Badge>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="text-center p-3 bg-muted/30 rounded-lg">
-                            <div className="text-2xl font-bold text-primary">{caixaSelecionada.quantidade}</div>
-                            <div className="text-xs text-muted-foreground">Equipamentos</div>
-                          </div>
-                          <div className="text-center p-3 bg-muted/30 rounded-lg">
-                            <div className="text-sm font-medium">{caixaSelecionada.responsavel}</div>
-                            <div className="text-xs text-muted-foreground">Responsável</div>
+                          <div>
+                            <div className="text-2xl font-bold text-primary">{totalQuantidadeSelecionada}</div>
+                            <div className="text-xs text-muted-foreground">Total de Equipamentos</div>
                           </div>
                         </div>
-
-                        {/* Lista de MACs */}
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium">MACs dos Equipamentos:</h4>
-                          <div className="space-y-1">
-                            {caixaSelecionada.macs.map((mac, index) => (
-                              <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded-md">
-                                <span className="text-sm font-mono">{mac}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  #{index + 1}
-                                </Badge>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {caixaSelecionada.status !== "Disponível" && (
-                          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                            <AlertTriangle className="h-4 w-4 text-destructive" />
-                            <span className="text-sm text-destructive">
-                              Esta caixa não está disponível para saída
-                            </span>
-                          </div>
-                        )}
                       </div>
+
+                      {/* Detalhes de cada caixa */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Caixas selecionadas:</h4>
+                        {caixasSelecionadasData.map((caixa) => (
+                          <div key={caixa.id} className="p-3 bg-muted/30 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <p className="font-semibold">{caixa.numero_caixa}</p>
+                                <p className="text-sm text-muted-foreground">{caixa.equipamento}</p>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-medium text-primary">{caixa.quantidade}</div>
+                                <div className="text-xs text-muted-foreground">equipamentos</div>
+                              </div>
+                            </div>
+                            <Badge variant={caixa.status === "Disponível" ? "default" : caixa.status === "Em Uso" ? "secondary" : "destructive"}>
+                              {caixa.status}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Lista consolidada de MACs */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-medium">Todos os MACs das caixas selecionadas:</h4>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const todosMacs = caixasSelecionadasData
+                                .flatMap(caixa => caixa.macs)
+                                .map(mac => mac.replace(/:/g, ''))
+                                .join(',');
+                              navigator.clipboard.writeText(todosMacs);
+                              toast({
+                                title: "Lista copiada",
+                                description: "Lista de todos os MACs copiada para a área de transferência",
+                              });
+                            }}
+                            className="h-8 gap-2"
+                          >
+                            <Copy className="h-3 w-3" />
+                            Copiar Todos
+                          </Button>
+                        </div>
+                        
+                        <div className="bg-background border rounded-lg p-4 max-h-48 overflow-y-auto">
+                          <div className="font-mono text-sm select-all break-all">
+                            {caixasSelecionadasData
+                              .flatMap(caixa => caixa.macs)
+                              .map(mac => mac.replace(/:/g, ''))
+                              .join(',')}
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-muted-foreground">
+                          Total de MACs: {caixasSelecionadasData.reduce((total, caixa) => total + caixa.macs.length, 0)}
+                        </div>
+                      </div>
+
+                      {/* Alertas se alguma caixa não está disponível */}
+                      {caixasSelecionadasData.some(caixa => caixa.status !== "Disponível") && (
+                        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                          <AlertTriangle className="h-4 w-4 text-destructive" />
+                          <span className="text-sm text-destructive">
+                            Algumas caixas selecionadas não estão disponíveis para saída
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>Selecione uma caixa para ver os detalhes</p>
+                      <p>Selecione caixas para ver os detalhes</p>
+                      <p className="text-sm">Clique nas caixas ao lado para selecioná-las</p>
                     </div>
                   )}
                 </CardContent>
@@ -484,16 +739,21 @@ export default function Saida() {
                       <div 
                         key={caixa.id}
                         className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
-                          selectedCaixa === caixa.id ? 'border-primary bg-primary/5' : ''
+                          selectedCaixa === caixa.id ? 'border-primary bg-primary/10 shadow-md' : ''
                         }`}
-                        onClick={() => setSelectedCaixa(caixa.id)}
+                        onClick={() => {
+                          console.log("Selecionando caixa simples:", caixa.id);
+                          // Limpar seleção múltipla quando usar seleção simples
+                          setSelectedCaixas([]);
+                          setSelectedCaixa(caixa.id);
+                        }}
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                             <Package className="h-4 w-4 text-primary" />
                           </div>
                           <div>
-                            <p className="font-medium">{caixa.id}</p>
+                            <p className="font-medium">{caixa.numero_caixa}</p>
                             <p className="text-sm text-muted-foreground">{caixa.equipamento}</p>
                           </div>
                         </div>
@@ -509,6 +769,108 @@ export default function Saida() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="saida-multipla" className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Seleção Múltipla de Caixas */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Selecionar Caixas
+                  </CardTitle>
+                  <CardDescription>
+                    Selecione múltiplas caixas para saída em lote
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {caixasDisponiveis.map((caixa) => (
+                      <div 
+                        key={caixa.id}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                          selectedCaixas.includes(caixa.id) 
+                            ? "border-primary bg-primary/10" 
+                            : "border-border hover:border-primary/50"
+                        }`}
+                        onClick={() => handleMultipleBoxSelection(caixa.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">{caixa.numero_caixa}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {caixa.equipamento} - {caixa.modelo}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium">{caixa.quantidade}</div>
+                            <div className="text-xs text-muted-foreground">equipamentos</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Detalhes das Caixas Selecionadas */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Info className="h-5 w-5" />
+                    Detalhes da Caixa
+                  </CardTitle>
+                  <CardDescription>
+                    Informações das caixas selecionadas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {caixasSelecionadasData.length > 0 ? (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        {caixasSelecionadasData.map((caixa) => (
+                          <div key={caixa.id} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                            <div>
+                              <div className="font-medium">{caixa.numero_caixa}</div>
+                              <div className="text-sm text-muted-foreground">{caixa.equipamento}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-medium">{caixa.quantidade}</div>
+                              <div className="text-xs text-muted-foreground">equipamentos</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
+                        <span className="font-medium">Total de Equipamentos:</span>
+                        <span className="text-lg font-bold text-primary">{totalQuantidadeSelecionada}</span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Caixas selecionadas:</span>
+                          <span className="text-sm">{caixasSelecionadasData.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Responsável:</span>
+                          <span className="text-sm">{caixasSelecionadasData[0]?.responsavel || "N/A"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Nenhuma caixa selecionada</p>
+                      <p className="text-sm">Selecione caixas na lista ao lado</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="separacao" className="space-y-6">
@@ -563,7 +925,7 @@ export default function Saida() {
                       <SelectContent>
                         {caixasDisponiveis.map((caixa) => (
                           <SelectItem key={caixa.id} value={caixa.id}>
-                            {caixa.id} - {caixa.equipamento} ({caixa.quantidade} MACs)
+                            {caixa.numero_caixa} - {caixa.equipamento} ({caixa.quantidade} MACs)
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -773,6 +1135,172 @@ export default function Saida() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Dialog para Criar RMA */}
+        <Dialog open={showRMADialog} onOpenChange={setShowRMADialog}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Criar Novo RMA</DialogTitle>
+              <DialogDescription>
+                Preencha as informações para criar uma solicitação de RMA
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Equipamento *</Label>
+                  <EquipmentSelector
+                    onSelect={handleEquipmentSelectRMA}
+                    selectedEquipment={selectedEquipmentRMA}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="modelo">Modelo</Label>
+                  <Input
+                    id="modelo"
+                    value={rmaData.modelo}
+                    onChange={(e) => setRmaData(prev => ({ ...prev, modelo: e.target.value }))}
+                    placeholder="Modelo do equipamento"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Endereços MAC</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={currentMacRMA}
+                    onChange={(e) => setCurrentMacRMA(e.target.value)}
+                    placeholder="Ex: C85A9FC7B9C0 ou C8:5A:9F:C7:B9:C0"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        addMacAddressRMA(currentMacRMA);
+                      }
+                    }}
+                  />
+                  <Button 
+                    type="button" 
+                    onClick={() => addMacAddressRMA(currentMacRMA)}
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {macsRMA.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <div className="text-sm font-medium">MACs adicionados:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {macsRMA.map((mac, index) => (
+                        <Badge 
+                          key={index} 
+                          variant="secondary" 
+                          className="flex items-center gap-1"
+                        >
+                          {mac}
+                          <button
+                            onClick={() => removeMacRMA(mac)}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="origem">Origem do Equipamento *</Label>
+                  <Input
+                    id="origem"
+                    value={rmaData.origem_equipamento}
+                    onChange={(e) => setRmaData(prev => ({ ...prev, origem_equipamento: e.target.value }))}
+                    placeholder="Ex: Estoque, Cliente"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="destino">Destino de Envio *</Label>
+                  <Input
+                    id="destino"
+                    value={rmaData.destino_envio}
+                    onChange={(e) => setRmaData(prev => ({ ...prev, destino_envio: e.target.value }))}
+                    placeholder="Ex: Laboratório, Fornecedor"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="defeito">Defeito Relatado *</Label>
+                <Textarea
+                  id="defeito"
+                  value={rmaData.defeito_relatado}
+                  onChange={(e) => setRmaData(prev => ({ ...prev, defeito_relatado: e.target.value }))}
+                  placeholder="Descreva o defeito relatado"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tecnico">Técnico Responsável</Label>
+                  <Select value={rmaData.tecnico_responsavel} onValueChange={(value) => setRmaData(prev => ({ ...prev, tecnico_responsavel: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o técnico" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border border-border shadow-lg">
+                      {funcionariosAprovados.map((funcionario) => (
+                        <SelectItem key={funcionario.id} value={funcionario.nome}>
+                          {funcionario.nome} - {funcionario.funcao}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="nota-fiscal">Nota Fiscal</Label>
+                  <Input
+                    id="nota-fiscal"
+                    value={rmaData.nota_fiscal}
+                    onChange={(e) => setRmaData(prev => ({ ...prev, nota_fiscal: e.target.value }))}
+                    placeholder="Número da nota fiscal"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="observacoes">Observações</Label>
+                <Textarea
+                  id="observacoes"
+                  value={rmaData.observacoes}
+                  onChange={(e) => setRmaData(prev => ({ ...prev, observacoes: e.target.value }))}
+                  placeholder="Observações adicionais"
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Anexos</Label>
+                <FileUploadRMA onFilesChange={setAnexosRMA} />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowRMADialog(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateRMA} disabled={rmaLoading}>
+                {rmaLoading ? "Criando..." : "Criar RMA"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

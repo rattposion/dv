@@ -170,32 +170,25 @@ export const useSupabaseProducao = () => {
 
       if (updateEstoqueRecebimentoError) throw updateEstoqueRecebimentoError;
 
-      // 9. Relatório será implementado quando authentication estiver ativo
-      // Comentado temporariamente para evitar erro de foreign key
-      /*
-      const { error: relatorioError } = await supabase
-        .from('relatorios')
+      // 9. Salvar caixa no inventário
+      const { error: caixaError } = await supabase
+        .from('caixas_inventario')
         .insert([{
-          tipo: 'producao',
-          titulo: `Produção diária - ${dadosProducao.responsavel} - ${hoje}`,
-          gerado_por: '00000000-0000-0000-0000-000000000000',
-          periodo_inicio: hoje,
-          periodo_fim: hoje,
-          dados: {
-            colaborador: dadosProducao.responsavel,
-            modelo: dadosProducao.modelo,
-            caixa: dadosProducao.numeroCaixa,
-            quantidade_equipamentos: dadosProducao.quantidade,
-            macs: dadosProducao.macs
-          }
+          numero_caixa: dadosProducao.numeroCaixa,
+          equipamento: dadosProducao.equipamento,
+          modelo: dadosProducao.modelo,
+          quantidade: dadosProducao.quantidade,
+          responsavel: dadosProducao.responsavel,
+          status: 'Disponível',
+          macs: dadosProducao.macs,
+          ordem_producao_id: ordemProducao.id
         }]);
 
-      if (relatorioError) throw relatorioError;
-      */
+      if (caixaError) throw caixaError;
 
       toast({
         title: "Produção Registrada",
-        description: `${dadosProducao.quantidade} unidades produzidas. Produção diária atualizada e salva nos relatórios.`,
+        description: `${dadosProducao.quantidade} unidades produzidas. Caixa ${dadosProducao.numeroCaixa} salva no inventário.`,
       });
 
       return true;

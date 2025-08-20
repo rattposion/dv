@@ -22,6 +22,7 @@ import Relatorios from "./pages/Relatorios";
 import Manutencoes from "./pages/Manutencoes";
 import Recebimentos from "./pages/Recebimentos";
 import Defeitos from "./pages/Defeitos";
+import RMA from "./pages/RMA";
 import Auth from "./pages/Auth";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const App = () => (
                         <Route path="/saida" element={<Saida />} />
                         <Route path="/producao" element={<Producao />} />
                         <Route path="/manutencoes" element={<Manutencoes />} />
+                        <Route path="/rma" element={<RMA />} />
                         <Route path="/relatorios" element={<Relatorios />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />

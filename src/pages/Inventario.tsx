@@ -10,17 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState } from "react";
-import { useInventario } from "@/contexts/InventarioContext";
-import { useHistorico } from "@/contexts/HistoricoContext";
 import { useToast } from "@/hooks/use-toast";
-import { useInventarioEstoqueSync } from "@/hooks/useInventarioEstoqueSync";
+import { useSupabaseCaixasInventario } from "@/hooks/useSupabaseCaixasInventario";
 
 export default function Inventario() {
-  // Sincroniza inventário com estoque automaticamente
-  useInventarioEstoqueSync();
   const [selectedCaixa, setSelectedCaixa] = useState<any>(null);
   const { toast } = useToast();
-  const { caixas } = useInventario();
+  const { caixas, loading } = useSupabaseCaixasInventario();
 
   // Função para gerar lista copiável de MACs sem dois pontos
   const generateMacList = (macs: string[]) => {
@@ -74,8 +70,17 @@ export default function Inventario() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {caixas.map((caixa) => (
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Carregando caixas do inventário...</p>
+          </div>
+        ) : caixas.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Nenhuma caixa encontrada no inventário</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {caixas.map((caixa) => (
             <Dialog key={caixa.id}>
               <DialogTrigger asChild>
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer">
@@ -86,7 +91,7 @@ export default function Inventario() {
                           <Package className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <CardTitle className="text-lg">{caixa.id}</CardTitle>
+                          <CardTitle className="text-lg">{caixa.numero_caixa}</CardTitle>
                           <CardDescription>{caixa.equipamento}</CardDescription>
                         </div>
                       </div>
@@ -125,7 +130,7 @@ export default function Inventario() {
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
-                    Detalhes da Caixa {caixa.id}
+                    Detalhes da Caixa {caixa.numero_caixa}
                   </DialogTitle>
                   <DialogDescription>
                     Informações completas sobre a caixa de equipamentos
@@ -206,8 +211,9 @@ export default function Inventario() {
                 </div>
               </DialogContent>
             </Dialog>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

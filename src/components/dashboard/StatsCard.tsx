@@ -28,62 +28,62 @@ export function StatsCard({
   const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
-        return 'border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10';
+        return 'border-blue-200 bg-blue-50';
       case 'success':
-        return 'border-success/20 bg-gradient-to-br from-success/5 to-success/10';
+        return 'border-green-200 bg-green-50';
       case 'warning':
-        return 'border-warning/20 bg-gradient-to-br from-warning/5 to-warning/10';
+        return 'border-orange-200 bg-orange-50';
       case 'destructive':
-        return 'border-destructive/20 bg-gradient-to-br from-destructive/5 to-destructive/10';
+        return 'border-red-200 bg-red-50';
       default:
-        return 'border-border';
+        return 'border-gray-200 bg-gray-50';
     }
   };
 
   const getIconStyles = () => {
     switch (variant) {
       case 'primary':
-        return 'text-primary bg-primary/10';
+        return 'text-blue-600 bg-blue-100';
       case 'success':
-        return 'text-success bg-success/10';
+        return 'text-green-600 bg-green-100';
       case 'warning':
-        return 'text-warning bg-warning/10';
+        return 'text-orange-600 bg-orange-100';
       case 'destructive':
-        return 'text-destructive bg-destructive/10';
+        return 'text-red-600 bg-red-100';
       default:
-        return 'text-muted-foreground bg-muted';
+        return 'text-gray-600 bg-gray-100';
     }
   };
 
   return (
     <Card className={cn(
-      "transition-smooth hover:shadow-elevated",
+      "card-natural transition-all duration-200 hover:shadow-md",
       getVariantStyles(),
       className
     )}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <CardTitle className="text-sm font-medium text-gray-600">
           {title}
         </CardTitle>
         <div className={cn(
-          "h-8 w-8 rounded-lg flex items-center justify-center",
+          "h-10 w-10 rounded-lg flex items-center justify-center",
           getIconStyles()
         )}>
-          <Icon className="h-4 w-4" />
+          <Icon className="h-5 w-5" />
         </div>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-2xl font-bold text-foreground">{value}</div>
+            <div className="text-2xl font-bold text-gray-800">{value}</div>
             {subtitle && (
-              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+              <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
             )}
           </div>
           {trend && (
             <Badge 
               variant={trend.positive ? "default" : "destructive"}
-              className="ml-2"
+              className="ml-2 text-xs"
             >
               {trend.positive ? '+' : ''}{trend.value}%
             </Badge>

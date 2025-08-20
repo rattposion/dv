@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      caixas_inventario: {
+        Row: {
+          created_at: string
+          equipamento: string
+          id: string
+          macs: string[]
+          modelo: string
+          numero_caixa: string
+          ordem_producao_id: string | null
+          quantidade: number
+          responsavel: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          equipamento: string
+          id?: string
+          macs?: string[]
+          modelo: string
+          numero_caixa: string
+          ordem_producao_id?: string | null
+          quantidade?: number
+          responsavel: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          equipamento?: string
+          id?: string
+          macs?: string[]
+          modelo?: string
+          numero_caixa?: string
+          ordem_producao_id?: string | null
+          quantidade?: number
+          responsavel?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       consumo_producao: {
         Row: {
           created_at: string
@@ -68,6 +110,7 @@ export type Database = {
           equipamento: string
           foto_url: string | null
           id: string
+          macs: string[] | null
           modelo: string
           observacoes: string | null
           origem: string | null
@@ -84,6 +127,7 @@ export type Database = {
           equipamento: string
           foto_url?: string | null
           id?: string
+          macs?: string[] | null
           modelo: string
           observacoes?: string | null
           origem?: string | null
@@ -100,6 +144,7 @@ export type Database = {
           equipamento?: string
           foto_url?: string | null
           id?: string
+          macs?: string[] | null
           modelo?: string
           observacoes?: string | null
           origem?: string | null
@@ -252,6 +297,45 @@ export type Database = {
           status?: string
           telefone?: string | null
           turno?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      garantias_equipamentos: {
+        Row: {
+          created_at: string
+          data_servico: string
+          equipamento_id: string | null
+          equipamento_nome: string
+          garantia_expira: string
+          id: string
+          numero_os: string
+          servico_realizado: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_servico: string
+          equipamento_id?: string | null
+          equipamento_nome: string
+          garantia_expira: string
+          id?: string
+          numero_os: string
+          servico_realizado: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_servico?: string
+          equipamento_id?: string | null
+          equipamento_nome?: string
+          garantia_expira?: string
+          id?: string
+          numero_os?: string
+          servico_realizado?: string
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -712,6 +796,72 @@ export type Database = {
           observacao?: string | null
           quantidade?: number
           responsavel?: string
+        }
+        Relationships: []
+      }
+      rmas: {
+        Row: {
+          anexos_ids: string[] | null
+          created_at: string
+          data_abertura: string
+          data_conclusao: string | null
+          defeito_relatado: string
+          destino_envio: string
+          diagnostico: string | null
+          equipamento: string
+          id: string
+          mac_address: string | null
+          modelo: string | null
+          nota_fiscal: string | null
+          numero_rma: string
+          observacoes: string | null
+          origem_equipamento: string
+          solucao: string | null
+          status: string
+          tecnico_responsavel: string | null
+          updated_at: string
+        }
+        Insert: {
+          anexos_ids?: string[] | null
+          created_at?: string
+          data_abertura?: string
+          data_conclusao?: string | null
+          defeito_relatado: string
+          destino_envio: string
+          diagnostico?: string | null
+          equipamento: string
+          id?: string
+          mac_address?: string | null
+          modelo?: string | null
+          nota_fiscal?: string | null
+          numero_rma: string
+          observacoes?: string | null
+          origem_equipamento: string
+          solucao?: string | null
+          status?: string
+          tecnico_responsavel?: string | null
+          updated_at?: string
+        }
+        Update: {
+          anexos_ids?: string[] | null
+          created_at?: string
+          data_abertura?: string
+          data_conclusao?: string | null
+          defeito_relatado?: string
+          destino_envio?: string
+          diagnostico?: string | null
+          equipamento?: string
+          id?: string
+          mac_address?: string | null
+          modelo?: string | null
+          nota_fiscal?: string | null
+          numero_rma?: string
+          observacoes?: string | null
+          origem_equipamento?: string
+          solucao?: string | null
+          status?: string
+          tecnico_responsavel?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

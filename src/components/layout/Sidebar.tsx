@@ -10,7 +10,8 @@ import {
   ChevronRight,
   Settings,
   PackageOpen,
-  AlertTriangle
+  AlertTriangle,
+  RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -18,15 +19,16 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 const menuItems = [
-  { icon: Home, label: "Dashboard", path: "/" },
+  { icon: Home, label: "Início", path: "/" },
   { icon: Users, label: "Funcionários", path: "/funcionarios" },
   { icon: Wrench, label: "Equipamentos", path: "/equipamentos" },
   { icon: Package, label: "Inventário", path: "/inventario" },
   { icon: PackageOpen, label: "Recebimentos", path: "/recebimentos" },
-  { icon: AlertTriangle, label: "Queimados/Defeitos", path: "/defeitos" },
-  { icon: Truck, label: "Registrar Saída", path: "/saida" },
+  { icon: AlertTriangle, label: "Defeitos", path: "/defeitos" },
+  { icon: Truck, label: "Saídas", path: "/saida" },
   { icon: Factory, label: "Produção", path: "/producao" },
   { icon: Settings, label: "Manutenções", path: "/manutencoes" },
+  { icon: RotateCcw, label: "RMA", path: "/rma" },
   { icon: BarChart3, label: "Relatórios", path: "/relatorios" },
 ];
 
@@ -41,25 +43,26 @@ export function Sidebar({ className }: SidebarProps) {
   return (
     <div 
       className={cn(
-        "bg-card border-r border-border transition-all duration-300 h-full flex flex-col shadow-card",
+        "bg-white border-r border-gray-200 h-full flex flex-col",
         isCollapsed ? "w-16" : "w-64",
+        "hidden sm:flex",
         className
       )}
     >
       {/* Header */}
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <div>
-              <h2 className="text-lg font-bold text-foreground">Sistema de Gestão</h2>
-              <p className="text-sm text-muted-foreground">Produção Industrial</p>
+              <h2 className="font-semibold text-gray-800">Sistema de Gestão</h2>
+              <p className="text-sm text-gray-500">Controle Industrial</p>
             </div>
           )}
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2"
+            className="text-gray-500 hover:text-gray-700 hover:bg-gray-100"
           >
             {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
@@ -67,7 +70,7 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-1">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -77,16 +80,16 @@ export function Sidebar({ className }: SidebarProps) {
               variant="ghost"
               asChild
               className={cn(
-                "w-full justify-start transition-smooth",
+                "w-full justify-start text-left",
                 isCollapsed ? "px-2" : "px-3",
                 isActive 
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200" 
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
               )}
             >
               <Link to={item.path}>
-                <Icon className={cn("h-5 w-5", !isCollapsed && "mr-3")} />
-                {!isCollapsed && <span>{item.label}</span>}
+                <Icon className={cn("h-4 w-4", !isCollapsed && "mr-3")} />
+                {!isCollapsed && <span className="font-medium">{item.label}</span>}
               </Link>
             </Button>
           );
@@ -94,11 +97,11 @@ export function Sidebar({ className }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-gray-200 bg-gray-50">
         {!isCollapsed && (
-          <div className="text-xs text-muted-foreground">
-            <p>Sistema v1.0</p>
-            <p>Gestão Industrial</p>
+          <div className="text-xs text-gray-500">
+            <p>Versão 1.0</p>
+            <p className="mt-1">Sistema de Gestão</p>
           </div>
         )}
       </div>
