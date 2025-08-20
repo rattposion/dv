@@ -23,23 +23,17 @@ export function EstoqueProvider({ children }: { children: ReactNode }) {
   const diminuirEstoque = (modelo: string, quantidade: number): boolean => {
     const estoqueAtual = getEstoquePorModelo(modelo);
     
-    console.log(`Diminuindo estoque: ${modelo} - Atual: ${estoqueAtual}, Diminuir: ${quantidade}`);
-    
     if (estoqueAtual < quantidade) {
-      console.log(`Estoque insuficiente para ${modelo}`);
       return false; // Estoque insuficiente
     }
 
-    setEstoque(prevEstoque => {
-      const novoEstoque = prevEstoque.map(item => 
+    setEstoque(prevEstoque => 
+      prevEstoque.map(item => 
         item.modelo === modelo 
           ? { ...item, disponivel: item.disponivel - quantidade }
           : item
-      );
-      
-      console.log(`Estoque atualizado para ${modelo}:`, novoEstoque.find(item => item.modelo === modelo));
-      return novoEstoque;
-    });
+      )
+    );
     
     return true; // Sucesso na diminuição
   };

@@ -11,6 +11,7 @@ export interface OperacaoHistorico {
   destino?: string; // Para saídas
   data: Date;
   observacao?: string;
+  anexos?: string[]; // Anexos da operação
 }
 
 interface HistoricoContextType {
