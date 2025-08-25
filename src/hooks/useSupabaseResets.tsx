@@ -6,46 +6,16 @@ export interface ResetSupabase {
   id: string;
   equipamento: string;
   modelo: string;
-  quantidade: number;
   responsavel: string;
+  quantidade: number;
   observacao?: string;
   created_at: string;
 }
 
-export interface ResetLocal {
-  id: string;
-  equipamento: string;
-  modelo: string;
-  quantidade: number;
-  responsavel: string;
-  observacao?: string;
-  data: Date;
-}
-
 export const useSupabaseResets = () => {
-  const [resets, setResets] = useState<ResetLocal[]>([]);
+  const [resets, setResets] = useState<ResetSupabase[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
-  // Converter de Supabase para formato local
-  const convertFromSupabase = (reset: ResetSupabase): ResetLocal => ({
-    id: reset.id,
-    equipamento: reset.equipamento,
-    modelo: reset.modelo,
-    quantidade: reset.quantidade,
-    responsavel: reset.responsavel,
-    observacao: reset.observacao,
-    data: new Date(reset.created_at)
-  });
-
-  // Converter de formato local para Supabase
-  const convertToSupabase = (reset: Omit<ResetLocal, 'id' | 'data'>): Omit<ResetSupabase, 'id' | 'created_at'> => ({
-    equipamento: reset.equipamento,
-    modelo: reset.modelo,
-    quantidade: reset.quantidade,
-    responsavel: reset.responsavel,
-    observacao: reset.observacao
-  });
 
   const fetchResets = async () => {
     try {
@@ -56,8 +26,7 @@ export const useSupabaseResets = () => {
 
       if (error) throw error;
 
-      const resetsLocais = (data || []).map(convertFromSupabase);
-      setResets(resetsLocais);
+      setResets(data || []);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -69,22 +38,30 @@ export const useSupabaseResets = () => {
     }
   };
 
-  const addReset = async (reset: Omit<ResetLocal, 'id' | 'data'>) => {
+  const addReset = async (resetData: {
+    equipamento: string;
+    modelo: string;
+    responsavel: string;
+    quantidade: number;
+    observacao?: string;
+  }) => {
     try {
-      const resetSupabase = convertToSupabase(reset);
-      
       const { data, error } = await supabase
         .from('resets')
-        .insert([resetSupabase])
+        .insert([resetData])
         .select()
         .single();
 
       if (error) throw error;
 
-      const novoReset = convertFromSupabase(data);
-      setResets(prev => [novoReset, ...prev]);
+      setResets(prev => [data, ...prev]);
       
-      return novoReset;
+      toast({
+        title: "Reset registrado",
+        description: `Reset de ${resetData.quantidade} equipamentos registrado com sucesso`,
+      });
+
+      return data;
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -95,12 +72,12 @@ export const useSupabaseResets = () => {
     }
   };
 
-  const getResetsPorModelo = (modelo: string): ResetLocal[] => {
-    return resets.filter(reset => reset.modelo === modelo);
+  const getTotalResets = () => {
+    return resets.reduce((total, reset) => total + reset.quantidade, 0);
   };
 
-  const getTotalResets = (): number => {
-    return resets.reduce((acc, reset) => acc + reset.quantidade, 0);
+  const getResetsPorModelo = (modelo: string) => {
+    return resets.filter(reset => reset.modelo === modelo);
   };
 
   useEffect(() => {
@@ -111,8 +88,8 @@ export const useSupabaseResets = () => {
     resets,
     loading,
     addReset,
-    getResetsPorModelo,
     getTotalResets,
+    getResetsPorModelo,
     refetch: fetchResets
   };
 };

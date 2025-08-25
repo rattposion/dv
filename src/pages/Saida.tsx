@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,10 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { useEstoque } from "@/contexts/EstoqueContext";
 import { useHistorico } from "@/contexts/HistoricoContext";
 import { useFuncionario } from "@/contexts/FuncionarioContext";
 import { FileUploadSaida } from "@/components/saida/FileUploadSaida";
@@ -58,7 +57,6 @@ export default function Saida() {
   const [anexosRMA, setAnexosRMA] = useState<string[]>([]);
   const { toast } = useToast();
   const { caixas: caixasDisponiveis, removeCaixa, loading: loadingCaixas } = useSupabaseCaixasInventario();
-  const { diminuirEstoque, getEstoquePorModelo } = useEstoque();
   const { addOperacao } = useHistorico();
   const { funcionariosAprovados } = useFuncionario();
   const { createRMA, loading: rmaLoading } = useSupabaseRMA();
@@ -71,7 +69,7 @@ export default function Saida() {
     caixa.equipamento.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleRegistrarSaida = () => {
+  const handleRegistrarSaida = async () => {
     // Verificar se há pelo menos uma caixa selecionada (qualquer dos métodos)
     const caixaSelecionadaId = selectedCaixa || (selectedCaixas.length > 0 ? selectedCaixas[0] : null);
     
@@ -94,58 +92,44 @@ export default function Saida() {
       return;
     }
 
-    // Verificar se há estoque suficiente
-    const estoqueAtual = getEstoquePorModelo(caixa.modelo);
-    if (estoqueAtual < caixa.quantidade) {
+    try {
+      // Registrar a operação no histórico com anexos
+      addOperacao({
+        tipo: "saida",
+        usuario: responsavelSaida,
+        caixaId: caixaSelecionadaId,
+        equipamento: caixa.equipamento,
+        modelo: caixa.modelo,
+        quantidade: caixa.quantidade,
+        destino,
+        observacao: motivo,
+        anexos: anexosSaida.length > 0 ? anexosSaida : undefined
+      });
+
+      // Remove a caixa do inventário (Supabase)
+      await removeCaixa(caixaSelecionadaId);
+
       toast({
-        title: "Estoque insuficiente",
-        description: `Estoque disponível: ${estoqueAtual} (necessário: ${caixa.quantidade})`,
+        title: "Saída registrada",
+        description: `Saída da caixa ${caixa.numero_caixa} registrada com sucesso`,
+      });
+
+      // Limpar formulário
+      setSelectedCaixa("");
+      setSelectedCaixas([]);
+      setResponsavelSaida("");
+      setDestino("");
+      setMotivo("");
+      setAnexosSaida([]);
+      
+    } catch (error) {
+      console.error('Erro ao registrar saída:', error);
+      toast({
+        title: "Erro ao registrar saída",
+        description: "Não foi possível registrar a saída. Tente novamente.",
         variant: "destructive",
       });
-      return;
     }
-
-    // Diminuir o estoque automaticamente
-    const estoqueReduzido = diminuirEstoque(caixa.modelo, caixa.quantidade);
-    
-    if (!estoqueReduzido) {
-      toast({
-        title: "Erro no estoque",
-        description: "Não foi possível reduzir o estoque",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Registrar a operação no histórico com anexos
-    addOperacao({
-      tipo: "saida",
-      usuario: responsavelSaida,
-      caixaId: caixaSelecionadaId,
-      equipamento: caixa.equipamento,
-      modelo: caixa.modelo,
-      quantidade: caixa.quantidade,
-      destino,
-      observacao: motivo,
-      anexos: anexosSaida.length > 0 ? anexosSaida : undefined
-    });
-
-    // Remove a caixa do inventário
-    removeCaixa(caixaSelecionadaId);
-
-    const novoEstoque = getEstoquePorModelo(caixa.modelo);
-    toast({
-      title: "Saída registrada",
-      description: `Saída da caixa ${caixaSelecionadaId} registrada. Estoque ${caixa.modelo}: ${novoEstoque}`,
-    });
-
-    // Limpar formulário
-    setSelectedCaixa("");
-    setSelectedCaixas([]);
-    setResponsavelSaida("");
-    setDestino("");
-    setMotivo("");
-    setAnexosSaida([]);
   };
 
   const caixaSelecionada = caixasDisponiveis.find(caixa => caixa.id === selectedCaixa || selectedCaixas.includes(caixa.id));
@@ -542,10 +526,6 @@ export default function Saida() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">Quantidade:</span>
                         <span className="text-sm">{caixaSelecionada.quantidade} equipamentos</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Estoque disponível:</span>
-                        <span className="text-sm">{getEstoquePorModelo(caixaSelecionada.modelo)} unidades</span>
                       </div>
                     </div>
                   )}

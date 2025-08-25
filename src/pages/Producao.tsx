@@ -9,11 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Factory, Package, Plus, X, Copy, RotateCcw, FileText, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useEstoque } from "@/contexts/EstoqueContext";
-import { useReset } from "@/contexts/ResetContext";
 import { useFuncionario } from "@/contexts/FuncionarioContext";
 import { useEquipamento } from "@/contexts/EquipamentoContext";
 import { useSupabaseProducao } from "@/hooks/useSupabaseProducao";
+import { useSupabaseResets } from "@/hooks/useSupabaseResets";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
@@ -23,11 +22,10 @@ export default function Producao() {
   const [currentMac, setCurrentMac] = useState("");
   const [estoqueRecebimentoDisponivel, setEstoqueRecebimentoDisponivel] = useState<{[modelo: string]: number}>({});
   const { toast } = useToast();
-  const { estoque } = useEstoque();
-  const { addReset, resets } = useReset();
   const { funcionarios } = useFuncionario();
   const { equipamentos } = useEquipamento();
   const { registrarProducao, verificarEstoqueRecebimento, loading: loadingProducao } = useSupabaseProducao();
+  const { addReset, resets, loading: loadingResets } = useSupabaseResets();
   
   // Estados para o formulário de produção
   const [numeroCaixa, setNumeroCaixa] = useState("");
@@ -168,7 +166,7 @@ export default function Producao() {
   };
 
   // Função para registrar reset
-  const handleRegistrarReset = () => {
+  const handleRegistrarReset = async () => {
     if (!selectedEquipamento || !resetQuantidade || !resetResponsavel) {
       toast({
         title: "Campos obrigatórios",
@@ -188,39 +186,33 @@ export default function Producao() {
       return;
     }
 
-    // Registrar o reset
-    const resetData = {
-      equipamento: selectedEquipamento,
-      modelo: selectedEquipamento, // Assumindo que equipamento e modelo são iguais
-      quantidade,
-      responsavel: resetResponsavel,
-      observacao: resetObservacao
-    };
+    try {
+      // Registrar o reset no Supabase
+      const resetData = await addReset({
+        equipamento: selectedEquipamento,
+        modelo: selectedEquipamento,
+        quantidade,
+        responsavel: resetResponsavel,
+        observacao: resetObservacao
+      });
 
-    addReset(resetData);
+      // Salvar dados para o relatório
+      setLastResetData(resetData);
 
-    // Salvar dados para o relatório
-    setLastResetData({
-      ...resetData,
-      id: `RST${String(resets.length + 1).padStart(3, '0')}`,
-      data: new Date()
-    });
+      // Fechar modal e mostrar relatório
+      setIsResetDialogOpen(false);
+      setShowResetReport(true);
 
-    // Fechar modal e mostrar relatório
-    setIsResetDialogOpen(false);
-    setShowResetReport(true);
+      // Limpar campos
+      setSelectedEquipamento("");
+      setSelectedEquipmentReset(null);
+      setResetQuantidade("");
+      setResetResponsavel("");
+      setResetObservacao("");
 
-    // Limpar campos
-    setSelectedEquipamento("");
-    setSelectedEquipmentReset(null);
-    setResetQuantidade("");
-    setResetResponsavel("");
-    setResetObservacao("");
-
-    toast({
-      title: "Reset registrado",
-      description: `Reset de ${quantidade} equipamentos registrado com sucesso`,
-    });
+    } catch (error) {
+      console.error('Erro ao registrar reset:', error);
+    }
   };
 
   const closeResetReport = () => {
@@ -531,33 +523,37 @@ export default function Producao() {
                     Últimos resets registrados
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {resets.slice(0, 10).map((reset) => (
-                      <div key={reset.id} className="p-3 border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">{reset.id}</span>
-                          <Badge variant="outline">
-                            {reset.quantidade} {reset.quantidade === 1 ? 'equipamento' : 'equipamentos'}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <div>Modelo: {reset.modelo}</div>
-                          <div>Responsável: {reset.responsavel}</div>
-                          <div>Data: {reset.data.toLocaleString('pt-BR')}</div>
-                          {reset.observacao && (
-                            <div>Obs: {reset.observacao}</div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {resets.length === 0 && (
-                      <div className="text-center text-muted-foreground py-8">
-                        Nenhum reset registrado ainda
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
+                 <CardContent>
+                   <div className="space-y-3 max-h-96 overflow-y-auto">
+                     {loadingResets ? (
+                       <div className="text-center text-muted-foreground py-8">
+                         Carregando resets...
+                       </div>
+                     ) : resets.slice(0, 10).map((reset) => (
+                       <div key={reset.id} className="p-3 border rounded-lg">
+                         <div className="flex items-center justify-between mb-2">
+                           <span className="font-medium">{reset.id}</span>
+                           <Badge variant="outline">
+                             {reset.quantidade} {reset.quantidade === 1 ? 'equipamento' : 'equipamentos'}
+                           </Badge>
+                         </div>
+                         <div className="text-sm text-muted-foreground space-y-1">
+                           <div>Modelo: {reset.modelo}</div>
+                           <div>Responsável: {reset.responsavel}</div>
+                           <div>Data: {new Date(reset.created_at).toLocaleString('pt-BR')}</div>
+                           {reset.observacao && (
+                             <div>Obs: {reset.observacao}</div>
+                           )}
+                         </div>
+                       </div>
+                     ))}
+                     {!loadingResets && resets.length === 0 && (
+                       <div className="text-center text-muted-foreground py-8">
+                         Nenhum reset registrado ainda
+                       </div>
+                     )}
+                   </div>
+                 </CardContent>
               </Card>
             </div>
           </TabsContent>
@@ -597,7 +593,7 @@ export default function Producao() {
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Data:</span>
-                    <span>{lastResetData.data.toLocaleString('pt-BR')}</span>
+                    <span>{new Date(lastResetData.created_at).toLocaleString('pt-BR')}</span>
                   </div>
                   {lastResetData.observacao && (
                     <div className="flex justify-between">

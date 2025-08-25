@@ -1,69 +1,75 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Sans+Pro:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Merriweather:wght@300;400;700&family=Source+Code+Pro:wght@400;500;600&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Cores mais quentes e naturais */
-    --background: 0 0% 98%;
-    --foreground: 220 15% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
+    /* Cores simples */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 5%;
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 5%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
-    --primary: 220 70% 50%;
+    --popover-foreground: 0 0% 5%;
+    --primary: 210 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 15% 95%;
-    --secondary-foreground: 220 15% 25%;
-    --muted: 220 15% 95%;
-    --muted-foreground: 220 10% 45%;
-    --accent: 220 15% 95%;
-    --accent-foreground: 220 15% 25%;
-    --destructive: 0 70% 55%;
+    --secondary: 210 40% 95%;
+    --secondary-foreground: 0 0% 15%;
+    --muted: 210 40% 95%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 210 40% 95%;
+    --accent-foreground: 0 0% 15%;
+    --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 15% 90%;
-    --input: 220 15% 90%;
-    --ring: 220 70% 50%;
-    --radius: 0.375rem;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 210 100% 50%;
+    --radius: 0.5rem;
 
-    /* Cores de status mais suaves */
-    --warning: 35 100% 55%;
+    /* Cores de status básicas */
+    --warning: 45 100% 50%;
     --warning-foreground: 0 0% 100%;
-    --success: 140 50% 45%;
+    --success: 120 60% 45%;
     --success-foreground: 0 0% 100%;
 
-    /* Sombras mais suaves */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08);
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.08);
+    /* Sombras simples */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1);
 
-    /* Transições mais suaves */
-    --transition-smooth: all 0.15s ease-out;
+    /* Transições básicas */
+    --transition-smooth: all 0.2s ease;
   }
 
   .dark {
-    --background: 220 15% 8%;
-    --foreground: 220 15% 90%;
-    --card: 220 15% 10%;
-    --card-foreground: 220 15% 90%;
-    --popover: 220 15% 8%;
-    --popover-foreground: 220 15% 90%;
-    --primary: 220 70% 50%;
+    --background: 0 0% 5%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 210 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 220 15% 80%;
-    --muted: 220 15% 15%;
-    --muted-foreground: 220 10% 55%;
-    --accent: 220 15% 15%;
-    --accent-foreground: 220 15% 80%;
-    --destructive: 0 70% 55%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 85%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 85%;
+    --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 220 70% 50%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 210 100% 50%;
+  }
+
+  .dark {
+    /* Same as root since we're always dark */
+    --background: 210 11% 7%;
+    --foreground: 213 31% 91%;
   }
 }
 
@@ -74,36 +80,35 @@
   
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    line-height: 1.6;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
   }
 
-  /* Scrollbar mais suave */
+  /* Custom Scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   
   ::-webkit-scrollbar-track {
-    @apply bg-muted/20;
-    border-radius: 8px;
+    @apply bg-muted/30;
+    border-radius: 10px;
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/30;
-    border-radius: 8px;
+    @apply bg-primary/40;
+    border-radius: 10px;
     transition: var(--transition-smooth);
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/50;
+    @apply bg-primary/60;
   }
 
-  /* Tipografia mais natural */
+  /* Typography simples */
   h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    @apply font-semibold;
+    font-family: system-ui, -apple-system, sans-serif;
   }
 
   h1 {
@@ -118,37 +123,23 @@
     @apply text-xl font-medium;
   }
 
-  /* Elementos de código mais suaves */
+  /* Code Elements */
   code {
-    @apply font-mono text-sm bg-muted/50 px-1.5 py-0.5 rounded text-foreground/80;
+    @apply font-mono text-sm bg-muted px-1.5 py-0.5 rounded-md;
   }
 
   pre {
-    @apply bg-muted/30 p-4 rounded-lg overflow-x-auto font-mono text-sm border;
+    @apply bg-muted p-4 rounded-lg overflow-x-auto font-mono text-sm;
   }
 }
 
 @layer components {
-  /* Componentes mais naturais */
-  .card-natural {
-    @apply bg-card border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow duration-200;
-  }
-
+  /* Componentes básicos */
   .card-simple {
     @apply bg-card border rounded-lg p-4 shadow-sm;
   }
 
   .transition-smooth {
     transition: var(--transition-smooth);
-  }
-
-  /* Botões mais naturais */
-  .btn-natural {
-    @apply px-4 py-2 rounded-md font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
-  }
-
-  /* Inputs mais naturais */
-  .input-natural {
-    @apply px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors;
   }
 }
