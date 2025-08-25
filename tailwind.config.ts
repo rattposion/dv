@@ -29,7 +29,9 @@ export default {
 				foreground: 'hsl(var(--foreground))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					foreground: 'hsl(var(--primary-foreground))',
+					glow: 'hsl(var(--primary-glow))',
+					variant: 'hsl(var(--primary-variant))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
@@ -71,6 +73,12 @@ export default {
 			},
 			boxShadow: {
 				'card': 'var(--shadow-card)',
+				'glow': 'var(--shadow-glow)',
+			},
+			backgroundImage: {
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-card': 'var(--gradient-card)', 
+				'gradient-accent': 'var(--gradient-accent)',
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
