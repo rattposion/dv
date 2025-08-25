@@ -5,71 +5,96 @@
 
 @layer base {
   :root {
-    /* Cores simples */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 5%;
-    --card: 0 0% 98%;
-    --card-foreground: 0 0% 5%;
+    /* Tema Claro - Paleta Roxo/Laranja/Rosa */
+    --background: 0 0% 98%;
+    --foreground: 270 15% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 270 15% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 5%;
-    --primary: 210 100% 50%;
+    --popover-foreground: 270 15% 15%;
+    
+    /* Roxo - Cor principal */
+    --primary: 270 60% 45%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 95%;
-    --secondary-foreground: 0 0% 15%;
-    --muted: 210 40% 95%;
-    --muted-foreground: 0 0% 40%;
-    --accent: 210 40% 95%;
-    --accent-foreground: 0 0% 15%;
+    --primary-glow: 270 70% 60%;
+    --primary-variant: 280 50% 35%;
+    
+    /* Rosa claro - Secundária */
+    --secondary: 320 60% 85%;
+    --secondary-foreground: 270 20% 25%;
+    
+    /* Laranja vibrante - Accent */
+    --accent: 25 85% 60%;
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 270 15% 94%;
+    --muted-foreground: 270 10% 45%;
     --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 210 100% 50%;
+    --border: 270 20% 88%;
+    --input: 270 20% 90%;
+    --ring: 270 60% 45%;
     --radius: 0.5rem;
 
-    /* Cores de status básicas */
-    --warning: 45 100% 50%;
+    /* Cores de status com paleta personalizada */
+    --warning: 35 90% 55%;
     --warning-foreground: 0 0% 100%;
-    --success: 120 60% 45%;
+    --success: 140 60% 45%;
     --success-foreground: 0 0% 100%;
 
-    /* Sombras simples */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    /* Sombras com paleta personalizada */
+    --shadow-sm: 0 1px 2px 0 hsl(270 60% 45% / 0.05);
+    --shadow: 0 1px 3px 0 hsl(270 60% 45% / 0.1);
+    --shadow-md: 0 4px 6px -1px hsl(270 60% 45% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(270 60% 45% / 0.1);
+    --shadow-card: 0 1px 3px 0 hsl(270 60% 45% / 0.1);
+    --shadow-glow: 0 0 20px hsl(270 70% 60% / 0.3);
 
-    /* Transições básicas */
-    --transition-smooth: all 0.2s ease;
+    /* Gradientes com paleta personalizada */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(var(--secondary)));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(25 90% 70%));
+
+    /* Transições suaves */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .dark {
-    --background: 0 0% 5%;
-    --foreground: 0 0% 95%;
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 5%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 210 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 85%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 0 0% 12%;
-    --accent-foreground: 0 0% 85%;
-    --destructive: 0 85% 60%;
+    /* Tema Escuro - Paleta Roxo/Laranja/Rosa */
+    --background: 270 20% 8%;
+    --foreground: 320 25% 92%;
+    --card: 270 15% 12%;
+    --card-foreground: 320 20% 90%;
+    --popover: 270 20% 10%;
+    --popover-foreground: 320 20% 90%;
+    
+    /* Roxo - Cor principal (mais vibrante no escuro) */
+    --primary: 270 70% 65%;
+    --primary-foreground: 270 20% 12%;
+    --primary-glow: 270 80% 75%;
+    --primary-variant: 280 60% 50%;
+    
+    /* Rosa claro - Secundária (adaptada para escuro) */
+    --secondary: 270 15% 18%;
+    --secondary-foreground: 320 40% 80%;
+    
+    /* Laranja vibrante - Accent (mantém vibrância) */
+    --accent: 25 90% 65%;
+    --accent-foreground: 270 20% 12%;
+    
+    --muted: 270 15% 16%;
+    --muted-foreground: 270 10% 65%;
+    --destructive: 0 85% 65%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 210 100% 50%;
-  }
-
-  .dark {
-    /* Same as root since we're always dark */
-    --background: 210 11% 7%;
-    --foreground: 213 31% 91%;
+    --border: 270 20% 20%;
+    --input: 270 20% 18%;
+    --ring: 270 70% 65%;
+    
+    /* Cores de status adaptadas */
+    --warning: 35 85% 65%;
+    --warning-foreground: 270 20% 12%;
+    --success: 140 55% 55%;
+    --success-foreground: 0 0% 100%;
   }
 }
 

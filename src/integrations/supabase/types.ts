@@ -728,6 +728,42 @@ export type Database = {
         }
         Relationships: []
       }
+      recuperacoes: {
+        Row: {
+          created_at: string
+          data_recuperacao: string
+          equipamento: string
+          id: string
+          macs: string[]
+          problema: string
+          responsavel: string
+          solucao: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_recuperacao?: string
+          equipamento: string
+          id?: string
+          macs?: string[]
+          problema: string
+          responsavel: string
+          solucao: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_recuperacao?: string
+          equipamento?: string
+          id?: string
+          macs?: string[]
+          problema?: string
+          responsavel?: string
+          solucao?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       relatorios: {
         Row: {
           created_at: string
