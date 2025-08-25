@@ -23,25 +23,25 @@ export function Header() {
     try {
       await signOut();
       toast({
-        title: "Sessão encerrada",
-        description: "Você saiu do sistema com sucesso."
+        title: "Logout realizado",
+        description: "Você foi desconectado com sucesso."
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Erro ao sair",
-        description: "Não foi possível sair do sistema."
+        title: "Erro no logout",
+        description: "Ocorreu um erro ao sair da conta."
       });
     }
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 px-4 py-3">
+    <header className="bg-card border-b px-4 py-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <MobileMenu />
-          <h1 className="text-xl font-semibold text-gray-800">
-            Sistema de Gestão Industrial
+          <h1 className="text-xl font-semibold">
+            Sistema de Gestão - ALLREDE
           </h1>
         </div>
 
@@ -50,33 +50,31 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-3">
-          <Button variant="ghost" size="sm" className="relative text-gray-600 hover:text-gray-800 hover:bg-gray-100">
+          <Button variant="ghost" size="sm" className="relative">
             <Bell className="h-4 w-4" />
             <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">
-              2
+              3
             </Badge>
           </Button>
 
-          <Button variant="ghost" size="sm" className="hidden sm:flex text-gray-600 hover:text-gray-800 hover:bg-gray-100">
+          <Button variant="ghost" size="sm" className="hidden sm:flex">
             <Settings className="h-4 w-4" />
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100">
-                <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <User className="h-4 w-4 text-blue-600" />
-                </div>
-                <span className="hidden lg:inline text-sm font-medium">{user?.email?.split('@')[0] || 'Usuário'}</span>
+              <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                <User className="h-4 w-4" />
+                <span className="hidden lg:inline text-sm">{user?.email?.split('@')[0] || 'Usuário'}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel className="text-gray-700">Minha Conta</DropdownMenuLabel>
+              <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-gray-600 hover:text-gray-800">Perfil</DropdownMenuItem>
-              <DropdownMenuItem className="text-gray-600 hover:text-gray-800">Configurações</DropdownMenuItem>
+              <DropdownMenuItem>Perfil</DropdownMenuItem>
+              <DropdownMenuItem>Configurações</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-red-600 hover:text-red-700">
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair
               </DropdownMenuItem>
