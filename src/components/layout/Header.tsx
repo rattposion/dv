@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { MacSearch } from "./MacSearch";
 import { MobileMenu } from "./MobileMenu";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function Header() {
   const { user, signOut } = useAuth();
@@ -50,6 +51,8 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-3">
+          <ThemeToggle />
+          
           <Button variant="ghost" size="sm" className="relative">
             <Bell className="h-4 w-4" />
             <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">

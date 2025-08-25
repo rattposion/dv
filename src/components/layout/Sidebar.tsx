@@ -11,7 +11,8 @@ import {
   Settings,
   PackageOpen,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const menuItems = [
   { icon: Package, label: "Inventário", path: "/inventario" },
   { icon: PackageOpen, label: "Recebimentos", path: "/recebimentos" },
   { icon: AlertTriangle, label: "Queimados/Defeitos", path: "/defeitos" },
+  { icon: RefreshCw, label: "Recuperação", path: "/recuperacao" },
   { icon: Truck, label: "Registrar Saída", path: "/saida" },
   { icon: Factory, label: "Produção", path: "/producao" },
   { icon: Settings, label: "Manutenções", path: "/manutencoes" },
