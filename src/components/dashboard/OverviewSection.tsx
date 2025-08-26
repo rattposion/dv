@@ -1,4 +1,4 @@
-import { Package, TruckIcon as Truck, RotateCcw, Activity, AlertTriangle, TrendingUp, Factory, Database, CheckCircle, Calendar, User } from "lucide-react";
+import { Package, TruckIcon as Truck, RotateCcw, Activity, AlertTriangle, TrendingUp, Factory, Database, CheckCircle, Calendar, User, Settings } from "lucide-react";
 import { StatsCard } from "./StatsCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,7 +29,7 @@ export function OverviewSection() {
   return (
     <div className="space-y-6">
       {/* Estatísticas principais com dados do Supabase */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
         <StatsCard
           title="Total Recebidos"
           value={loading ? "..." : stats.totalRecebidos.toString()}
@@ -47,6 +47,12 @@ export function OverviewSection() {
           value={loading ? "..." : stats.equipamentosComProblemas.toString()}
           subtitle="Equipamentos defeituosos"
           icon={AlertTriangle}
+        />
+        <StatsCard
+          title="Recuperados"
+          value={loading ? "..." : stats.equipamentosRecuperados.toString()}
+          subtitle="Equipamentos recuperados"
+          icon={Settings}
         />
         <StatsCard
           title="Equipamentos Cadastrados"
