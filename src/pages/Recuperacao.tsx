@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,62 +7,41 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, CheckCircle2, AlertCircle } from "lucide-react";
-import { useSupabaseRecuperacoes, type Recuperacao } from "@/hooks/useSupabaseRecuperacoes";
-import { useSupabaseFuncionarios } from "@/hooks/useSupabaseFuncionarios";
-import { supabase } from "@/integrations/supabase/client";
+import { Plus, X, CheckCircle2, AlertCircle, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSupabaseRecuperacoes } from "@/hooks/useSupabaseRecuperacoes";
+import { useSupabaseEquipamentos } from "@/hooks/useSupabaseEquipamentos";
+import { useSupabaseFuncionarios } from "@/hooks/useSupabaseFuncionarios";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Recuperacao() {
-  const { recuperacoes, loading, createRecuperacao } = useSupabaseRecuperacoes();
-  const { funcionarios } = useSupabaseFuncionarios();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { equipamentos } = useSupabaseEquipamentos();
+  const { funcionarios } = useSupabaseFuncionarios();
+  const { 
+    recuperacoes, 
+    loading, 
+    createRecuperacao
+  } = useSupabaseRecuperacoes();
+
+  // Estados para recuperação
   const [equipamentoSelecionado, setEquipamentoSelecionado] = useState("");
-  const [responsavelSelecionado, setResponsavelSelecionado] = useState("");
   const [problema, setProblema] = useState("");
   const [solucao, setSolucao] = useState("");
   const [macAtual, setMacAtual] = useState("");
   const [macs, setMacs] = useState<string[]>([]);
-  const [tiposEquipamentos, setTiposEquipamentos] = useState<string[]>([]);
-  const [equipamentosDisponiveis, setEquipamentosDisponiveis] = useState<any[]>([]);
+  const [responsavelSelecionado, setResponsavelSelecionado] = useState("");
+  
+  // Estados para filtros do formulário
   const [filtroEquipamento, setFiltroEquipamento] = useState("");
 
-  // Buscar equipamentos cadastrados
-  useEffect(() => {
-    const fetchEquipamentos = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('equipamentos')
-          .select('id, nome, tipo, marca, modelo')
-          .eq('status', 'ativo')
-          .order('nome');
-
-        if (error) throw error;
-
-        setEquipamentosDisponiveis(data || []);
-        
-        // Também manter os tipos únicos se necessário
-        const tipos = Array.from(new Set(data?.map(item => item.tipo))).filter(Boolean);
-        setTiposEquipamentos(tipos);
-      } catch (error) {
-        console.error('Erro ao buscar equipamentos:', error);
-      }
-    };
-
-    fetchEquipamentos();
-  }, []);
-
-  // Filtrar equipamentos com base na pesquisa
-  const equipamentosFiltrados = equipamentosDisponiveis.filter(equipamento => {
-    if (!filtroEquipamento) return true;
-    const termosPesquisa = filtroEquipamento.toLowerCase();
-    return (
-      equipamento.nome?.toLowerCase().includes(termosPesquisa) ||
-      equipamento.tipo?.toLowerCase().includes(termosPesquisa) ||
-      equipamento.marca?.toLowerCase().includes(termosPesquisa) ||
-      equipamento.modelo?.toLowerCase().includes(termosPesquisa)
-    );
-  });
+  const funcionariosAtivos = funcionarios.filter(f => f.aprovado);
+  
+  // Filtrar equipamentos para o select
+  const equipamentosFiltrados = equipamentos.filter(eq => 
+    eq.modelo.toLowerCase().includes(filtroEquipamento.toLowerCase())
+  );
 
   const adicionarMac = () => {
     if (macAtual.trim() && !macs.includes(macAtual.trim())) {
@@ -75,10 +54,43 @@ export default function Recuperacao() {
     setMacs(macs.filter(mac => mac !== macToRemove));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const copiarMac = async (mac: string) => {
+    try {
+      await navigator.clipboard.writeText(mac);
+      toast({
+        title: "MAC copiado",
+        description: `MAC ${mac} copiado para a área de transferência`
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao copiar",
+        description: "Não foi possível copiar o MAC"
+      });
+    }
+  };
+
+  const copiarTodosMacs = async (macs: string[]) => {
+    try {
+      const macsTexto = macs.join('\n');
+      await navigator.clipboard.writeText(macsTexto);
+      toast({
+        title: "MACs copiados",
+        description: `${macs.length} MACs copiados para a área de transferência`
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive", 
+        title: "Erro ao copiar",
+        description: "Não foi possível copiar os MACs"
+      });
+    }
+  };
+
+  const handleSubmitRecuperacao = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!equipamentoSelecionado || !responsavelSelecionado || !problema || !solucao || macs.length === 0) {
+    if (!equipamentoSelecionado || !problema || !solucao || macs.length === 0 || !responsavelSelecionado) {
       toast({
         variant: "destructive",
         title: "Campos obrigatórios",
@@ -93,19 +105,21 @@ export default function Recuperacao() {
         problema,
         solucao,
         macs: [...macs],
-        data_recuperacao: new Date().toISOString(),
-        responsavel: responsavelSelecionado
+        responsavel: responsavelSelecionado,
+        data_recuperacao: new Date().toISOString()
       });
       
       // Limpar formulário
       setEquipamentoSelecionado("");
-      setResponsavelSelecionado("");
       setProblema("");
       setSolucao("");
       setMacs([]);
       setMacAtual("");
+      setResponsavelSelecionado("");
+      setFiltroEquipamento(""); // Limpar também o filtro
+
     } catch (error) {
-      // Erro já tratado no hook
+      console.error('Erro ao registrar recuperação:', error);
     }
   };
 
@@ -120,7 +134,7 @@ export default function Recuperacao() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Formulário de Registro */}
+          {/* Formulário de Recuperação */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -132,57 +146,48 @@ export default function Recuperacao() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="equipamento">Equipamento</Label>
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="Pesquisar equipamento..."
-                      value={filtroEquipamento}
-                      onChange={(e) => setFiltroEquipamento(e.target.value)}
-                      className="mb-2"
-                    />
-                    <Select value={equipamentoSelecionado} onValueChange={setEquipamentoSelecionado}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o equipamento cadastrado" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[200px]">
-                        {equipamentosFiltrados.length === 0 ? (
-                          <div className="p-2 text-sm text-muted-foreground">
-                            {filtroEquipamento ? 'Nenhum equipamento encontrado' : 'Nenhum equipamento disponível'}
-                          </div>
-                        ) : (
-                          equipamentosFiltrados.map((equipamento) => (
-                            <SelectItem key={equipamento.id} value={`${equipamento.nome} - ${equipamento.tipo} ${equipamento.marca || ''} ${equipamento.modelo || ''}`.trim()}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{equipamento.nome}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {equipamento.tipo} {equipamento.marca && `- ${equipamento.marca}`} {equipamento.modelo && `${equipamento.modelo}`}
-                                </span>
-                              </div>
+              <form onSubmit={handleSubmitRecuperacao} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="equipamento">Equipamento</Label>
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Filtrar equipamentos..."
+                        value={filtroEquipamento}
+                        onChange={(e) => setFiltroEquipamento(e.target.value)}
+                        className="mb-2"
+                      />
+                      <Select value={equipamentoSelecionado} onValueChange={setEquipamentoSelecionado}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o equipamento" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {equipamentosFiltrados.map((eq) => (
+                            <SelectItem key={eq.id} value={eq.modelo}>
+                              {eq.modelo}
                             </SelectItem>
-                          ))
-                        )}
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="responsavel">Responsável</Label>
+                    <Select value={responsavelSelecionado} onValueChange={setResponsavelSelecionado}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o responsável" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {funcionariosAtivos.map((func) => (
+                          <SelectItem key={func.id} value={func.nome}>
+                            {func.nome}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-
-                 <div>
-                   <Label htmlFor="responsavel">Responsável</Label>
-                   <Select value={responsavelSelecionado} onValueChange={setResponsavelSelecionado}>
-                     <SelectTrigger>
-                       <SelectValue placeholder="Selecione o responsável" />
-                     </SelectTrigger>
-                     <SelectContent>
-                       {funcionarios.filter(f => f.status === 'Ativo').map((funcionario) => (
-                         <SelectItem key={funcionario.id} value={funcionario.nome}>
-                           {funcionario.nome}
-                         </SelectItem>
-                       ))}
-                     </SelectContent>
-                   </Select>
-                 </div>
 
                 <div>
                   <Label htmlFor="problema">Problema Identificado</Label>
@@ -246,7 +251,7 @@ export default function Recuperacao() {
                   )}
                 </div>
 
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={loading}>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
                   Registrar Recuperação
                 </Button>
@@ -267,7 +272,11 @@ export default function Recuperacao() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4 max-h-96 overflow-y-auto">
-                {recuperacoes.length === 0 ? (
+                {loading ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    Carregando recuperações...
+                  </p>
+                ) : recuperacoes.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">
                     Nenhuma recuperação registrada ainda
                   </p>
@@ -276,9 +285,20 @@ export default function Recuperacao() {
                     <div key={recuperacao.id} className="border rounded-lg p-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">{recuperacao.equipamento}</h4>
-                        <Badge variant="outline">
-                          {recuperacao.macs.length} MAC(s)
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {recuperacao.macs.length} MAC(s)
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copiarTodosMacs(recuperacao.macs)}
+                            className="h-8 w-8 p-0 hover:bg-primary hover:text-primary-foreground"
+                            title="Copiar todos os MACs"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                       
                       <div className="text-sm space-y-1">
@@ -288,7 +308,13 @@ export default function Recuperacao() {
                       
                       <div className="flex flex-wrap gap-1">
                         {recuperacao.macs.map((mac) => (
-                          <Badge key={mac} variant="secondary" className="text-xs">
+                          <Badge 
+                            key={mac} 
+                            variant="secondary" 
+                            className="text-xs cursor-pointer hover:bg-secondary/80"
+                            onClick={() => copiarMac(mac)}
+                            title="Clique para copiar"
+                          >
                             {mac}
                           </Badge>
                         ))}

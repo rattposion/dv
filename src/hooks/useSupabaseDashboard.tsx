@@ -6,6 +6,7 @@ interface DashboardStats {
   totalRecebidos: number;
   estoqueDisponivel: number;
   equipamentosComProblemas: number;
+  equipamentosRecuperados: number;
   estoquesPorModelo: { [modelo: string]: number };
   defeitosPorTipo: { [tipo: string]: number };
   producaoDiaria: Array<{
@@ -22,6 +23,7 @@ export const useSupabaseDashboard = () => {
     totalRecebidos: 0,
     estoqueDisponivel: 0,
     equipamentosComProblemas: 0,
+    equipamentosRecuperados: 0,
     estoquesPorModelo: {},
     defeitosPorTipo: {},
     producaoDiaria: []
@@ -82,10 +84,25 @@ export const useSupabaseDashboard = () => {
 
       if (producaoDiariaError) throw producaoDiariaError;
 
+      // 6. Buscar recuperações
+      const { data: recuperacoes, error: recuperacoesError } = await supabase
+        .from('relatorios')
+        .select('dados')
+        .eq('tipo', 'recuperacao');
+
+      if (recuperacoesError) throw recuperacoesError;
+
+      // Calcular total de equipamentos recuperados
+      const equipamentosRecuperados = (recuperacoes || []).reduce((total, item) => {
+        const dados = item.dados as any;
+        return total + (dados?.macs?.length || 0);
+      }, 0);
+
       setStats({
         totalRecebidos,
         estoqueDisponivel,
         equipamentosComProblemas,
+        equipamentosRecuperados,
         estoquesPorModelo,
         defeitosPorTipo,
         producaoDiaria: producaoDiaria || []
@@ -134,6 +151,13 @@ export const useSupabaseDashboard = () => {
         event: '*',
         schema: 'public',
         table: 'estoque_recebimento'
+      }, () => {
+        fetchDashboardStats();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'relatorios'
       }, () => {
         fetchDashboardStats();
       })

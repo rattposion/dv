@@ -352,33 +352,51 @@ export default function Equipamentos() {
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
-                      {garantias.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.numero_os}</TableCell>
-                          <TableCell>{item.equipamento_nome}</TableCell>
-                          <TableCell className="max-w-xs truncate" title={item.servico_realizado}>
-                            {item.servico_realizado}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(item.data_servico).toLocaleDateString('pt-BR')}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(item.garantia_expira).toLocaleDateString('pt-BR')}
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={
-                                item.status === 'Ativa' ? 'default' : 
-                                item.status === 'Próximo ao Vencimento' ? 'secondary' : 'destructive'
-                              }
-                            >
-                              {item.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
+                      <TableBody>
+                        {garantias.map((item) => (
+                          <TableRow 
+                            key={item.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => {
+                              toast({
+                                title: "Detalhes da Garantia",
+                                description: (
+                                  <div className="space-y-2">
+                                    <p><strong>OS/TAREFA:</strong> {item.numero_os}</p>
+                                    <p><strong>Equipamento:</strong> {item.equipamento_nome}</p>
+                                    <p><strong>Serviço:</strong> {item.servico_realizado}</p>
+                                    <p><strong>Data do Serviço:</strong> {new Date(item.data_servico).toLocaleDateString('pt-BR')}</p>
+                                    <p><strong>Garantia Expira:</strong> {new Date(item.garantia_expira).toLocaleDateString('pt-BR')}</p>
+                                    <p><strong>Status:</strong> {item.status}</p>
+                                  </div>
+                                )
+                              });
+                            }}
+                          >
+                            <TableCell className="font-medium">{item.numero_os}</TableCell>
+                            <TableCell>{item.equipamento_nome}</TableCell>
+                            <TableCell className="max-w-xs truncate" title={item.servico_realizado}>
+                              {item.servico_realizado}
+                            </TableCell>
+                            <TableCell>
+                              {new Date(item.data_servico).toLocaleDateString('pt-BR')}
+                            </TableCell>
+                            <TableCell>
+                              {new Date(item.garantia_expira).toLocaleDateString('pt-BR')}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  item.status === 'Ativa' ? 'default' : 
+                                  item.status === 'Próximo ao Vencimento' ? 'secondary' : 'destructive'
+                                }
+                              >
+                                {item.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
                   </Table>
                 )}
               </CardContent>

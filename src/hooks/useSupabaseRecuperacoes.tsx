@@ -1,114 +1,144 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-export interface Recuperacao {
+export interface RecuperacaoSupabase {
   id: string;
   equipamento: string;
   problema: string;
   solucao: string;
   macs: string[];
-  data_recuperacao: string;
   responsavel: string;
+  data_recuperacao: string;
   created_at: string;
   updated_at: string;
 }
 
-export function useSupabaseRecuperacoes() {
-  const [recuperacoes, setRecuperacoes] = useState<Recuperacao[]>([]);
-  const [loading, setLoading] = useState(false);
+
+export const useSupabaseRecuperacoes = () => {
+  const [recuperacoes, setRecuperacoes] = useState<RecuperacaoSupabase[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchRecuperacoes = async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("recuperacoes")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .from('recuperacoes')
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setRecuperacoes((data || []) as Recuperacao[]);
-    } catch (error) {
-      console.error("Erro ao buscar recuperações:", error);
+      
+      const recuperacoesData = (data || []).map(item => ({
+        id: item.id,
+        equipamento: item.equipamento,
+        problema: item.problema,
+        solucao: item.solucao,
+        macs: item.macs,
+        responsavel: item.responsavel,
+        data_recuperacao: item.data_recuperacao,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      }));
+      
+      setRecuperacoes(recuperacoesData);
+    } catch (error: any) {
+      console.error('Erro ao buscar recuperações:', error);
       toast({
-        title: "Erro",
-        description: "Falha ao carregar recuperações",
         variant: "destructive",
+        title: "Erro ao carregar recuperações",
+        description: error.message
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const createRecuperacao = async (recuperacaoData: Omit<Recuperacao, "id" | "created_at" | "updated_at">) => {
-    setLoading(true);
+
+  const createRecuperacao = async (recuperacao: Omit<RecuperacaoSupabase, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       const { data, error } = await supabase
-        .from("recuperacoes")
-        .insert([recuperacaoData])
+        .from('recuperacoes')
+        .insert([recuperacao])
         .select()
         .single();
 
       if (error) throw error;
 
-      await fetchRecuperacoes();
+      const novaRecuperacao = {
+        id: data.id,
+        equipamento: data.equipamento,
+        problema: data.problema,
+        solucao: data.solucao,
+        macs: data.macs,
+        responsavel: data.responsavel,
+        data_recuperacao: data.data_recuperacao,
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      };
+
+      setRecuperacoes(prev => [novaRecuperacao, ...prev]);
+      
       toast({
-        title: "Sucesso",
-        description: `Recuperação registrada com sucesso`,
+        title: "Recuperação registrada",
+        description: `${recuperacao.macs.length} equipamento(s) registrado(s) com sucesso.`
       });
 
-      return data;
-    } catch (error) {
-      console.error("Erro ao criar recuperação:", error);
+      return novaRecuperacao;
+    } catch (error: any) {
       toast({
-        title: "Erro",
-        description: "Falha ao registrar recuperação",
         variant: "destructive",
+        title: "Erro ao registrar recuperação",
+        description: error.message
       });
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
-  const updateRecuperacao = async (id: string, updates: Partial<Recuperacao>) => {
-    setLoading(true);
+
+  const deleteRecuperacao = async (id: string) => {
     try {
       const { error } = await supabase
-        .from("recuperacoes")
-        .update(updates)
-        .eq("id", id);
+        .from('recuperacoes')
+        .delete()
+        .eq('id', id);
 
       if (error) throw error;
 
-      await fetchRecuperacoes();
+      setRecuperacoes(prev => prev.filter(r => r.id !== id));
+      
       toast({
-        title: "Sucesso",
-        description: "Recuperação atualizada com sucesso",
+        title: "Recuperação removida",
+        description: "Registro removido com sucesso."
       });
-    } catch (error) {
-      console.error("Erro ao atualizar recuperação:", error);
+    } catch (error: any) {
       toast({
-        title: "Erro",
-        description: "Falha ao atualizar recuperação",
         variant: "destructive",
+        title: "Erro ao remover recuperação",
+        description: error.message
       });
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
+
+  const fetchData = async () => {
+    setLoading(true);
+    await fetchRecuperacoes();
+    setLoading(false);
+  };
+
   useEffect(() => {
-    fetchRecuperacoes();
+    fetchData();
   }, []);
+
+  // Estatísticas derivadas
+  const totalRecuperados = recuperacoes.reduce((total, rec) => total + rec.macs.length, 0);
 
   return {
     recuperacoes,
     loading,
-    fetchRecuperacoes,
+    totalRecuperados,
     createRecuperacao,
-    updateRecuperacao,
+    deleteRecuperacao,
+    refetch: fetchData
   };
-}
+};
