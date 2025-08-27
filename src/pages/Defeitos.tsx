@@ -85,20 +85,25 @@ export default function Defeitos() {
     macs: [] as string[]
   });
 
-  // Auto-calculate quantity based on selected equipment's MACs
+  // Auto-fill equipment data when selected
   useEffect(() => {
     if (selectedEquipment) {
-      const equipmentData = equipamentos.find(eq => eq.id === selectedEquipment.id);
-      const macCount = equipmentData?.mac ? 1 : 0; // For now, assuming 1 MAC per equipment
       setNovoDefeito(prev => ({
         ...prev,
         equipamento: selectedEquipment.nome,
         modelo: selectedEquipment.modelo,
-        quantidade: macCount || 1,
-        macs: equipmentData?.mac ? [equipmentData.mac] : []
+        macs: [] // Deixar vazio para o usuário adicionar manualmente os MACs com defeito
       }));
     }
   }, [selectedEquipment, equipamentos]);
+
+  // Auto-calculate quantity based on number of MACs
+  useEffect(() => {
+    setNovoDefeito(prev => ({
+      ...prev,
+      quantidade: prev.macs.length
+    }));
+  }, [novoDefeito.macs]);
 
   useEffect(() => {
     fetchDefeitos();
@@ -280,9 +285,9 @@ export default function Defeitos() {
                     className="bg-muted"
                     placeholder="0"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Calculado automaticamente baseado nos MACs do equipamento
-                  </p>
+                   <p className="text-xs text-muted-foreground mt-1">
+                     Calculado automaticamente baseado no número de MACs inclusos ({novoDefeito.macs.length} MACs)
+                   </p>
                   </div>
                 
                   <div>
@@ -388,15 +393,24 @@ export default function Defeitos() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          const input = e.target as HTMLInputElement;
-                          const mac = input.value.trim();
-                          if (mac && !novoDefeito.macs.includes(mac)) {
-                            setNovoDefeito(prev => ({ 
-                              ...prev, 
-                              macs: [...prev.macs, mac] 
-                            }));
-                            input.value = '';
-                          }
+                           const input = e.target as HTMLInputElement;
+                           const mac = input.value.trim();
+                           if (mac) {
+                             if (!novoDefeito.macs.includes(mac)) {
+                               setNovoDefeito(prev => ({ 
+                                 ...prev, 
+                                 macs: [...prev.macs, mac],
+                                 quantidade: [...prev.macs, mac].length
+                               }));
+                               input.value = '';
+                             } else {
+                               toast({
+                                 title: "MAC já incluído",
+                                 description: "Este MAC address já foi adicionado à lista",
+                                 variant: "destructive",
+                               });
+                             }
+                           }
                         }
                       }}
                     />
@@ -405,15 +419,24 @@ export default function Defeitos() {
                       variant="outline"
                       className="w-full sm:w-auto"
                       onClick={() => {
-                        const input = document.getElementById('new-mac') as HTMLInputElement;
-                        const mac = input.value.trim();
-                        if (mac && !novoDefeito.macs.includes(mac)) {
-                          setNovoDefeito(prev => ({ 
-                            ...prev, 
-                            macs: [...prev.macs, mac] 
-                          }));
-                          input.value = '';
-                        }
+                         const input = document.getElementById('new-mac') as HTMLInputElement;
+                         const mac = input.value.trim();
+                         if (mac) {
+                           if (!novoDefeito.macs.includes(mac)) {
+                             setNovoDefeito(prev => ({ 
+                               ...prev, 
+                               macs: [...prev.macs, mac],
+                               quantidade: [...prev.macs, mac].length
+                             }));
+                             input.value = '';
+                           } else {
+                             toast({
+                               title: "MAC já incluído",
+                               description: "Este MAC address já foi adicionado à lista",
+                               variant: "destructive",
+                             });
+                           }
+                         }
                       }}
                     >
                       <Plus className="h-4 w-4" />
@@ -432,12 +455,16 @@ export default function Defeitos() {
                             variant="ghost"
                             size="sm"
                             className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={() => {
-                              setNovoDefeito(prev => ({
-                                ...prev,
-                                macs: prev.macs.filter((_, i) => i !== index)
-                              }));
-                            }}
+                             onClick={() => {
+                               setNovoDefeito(prev => {
+                                 const newMacs = prev.macs.filter((_, i) => i !== index);
+                                 return {
+                                   ...prev,
+                                   macs: newMacs,
+                                   quantidade: newMacs.length
+                                 };
+                               });
+                             }}
                           >
                             <X className="h-3 w-3" />
                           </Button>
