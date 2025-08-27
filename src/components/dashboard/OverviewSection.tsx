@@ -412,49 +412,6 @@ export function OverviewSection() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="card-modern group cursor-pointer">
-          <div className="flex items-center space-x-3">
-            <div className="h-12 w-12 bg-primary/20 rounded-xl flex items-center justify-center group-hover:bg-primary/30 transition-smooth">
-              <TrendingUp className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">Eficiência</h3>
-              <p className="text-sm text-muted-foreground">
-                {stats.estoqueDisponivel > 0 ? "Com estoque" : "Estoque vazio"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card-modern group cursor-pointer">
-          <div className="flex items-center space-x-3">
-            <div className="h-12 w-12 bg-warning/20 rounded-xl flex items-center justify-center group-hover:bg-warning/30 transition-smooth">
-              <AlertTriangle className="h-6 w-6 text-warning" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">Alertas</h3>
-              <p className="text-sm text-muted-foreground">
-                {stats.equipamentosComProblemas} defeituosos
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card-modern group cursor-pointer">
-          <div className="flex items-center space-x-3">
-            <div className="h-12 w-12 bg-success/20 rounded-xl flex items-center justify-center group-hover:bg-success/30 transition-smooth">
-              <Activity className="h-6 w-6 text-success" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">Status</h3>
-              <p className="text-sm text-muted-foreground">Sistema operacional</p>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

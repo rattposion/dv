@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface MacAddressInputProps {
   value: string;
@@ -23,6 +24,7 @@ export function MacAddressInput({
     value ? value.split(" | ").filter(Boolean) : []
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   // Formatar MAC address automaticamente
   const formatMacAddress = (input: string) => {
@@ -42,11 +44,19 @@ export function MacAddressInput({
   };
 
   const addMacAddress = (mac: string) => {
-    if (mac && !macAddresses.includes(mac.toUpperCase())) {
-      const newMacAddresses = [...macAddresses, mac.toUpperCase()];
-      setMacAddresses(newMacAddresses);
-      updateParentValue(newMacAddresses);
-      setCurrentInput("");
+    if (mac) {
+      if (!macAddresses.includes(mac.toUpperCase())) {
+        const newMacAddresses = [...macAddresses, mac.toUpperCase()];
+        setMacAddresses(newMacAddresses);
+        updateParentValue(newMacAddresses);
+        setCurrentInput("");
+      } else {
+        toast({
+          title: "MAC já incluído",
+          description: "Este MAC address já foi adicionado à lista",
+          variant: "destructive",
+        });
+      }
     }
   };
 
