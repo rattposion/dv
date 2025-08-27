@@ -25,6 +25,7 @@ import Recebimentos from "./pages/Recebimentos";
 import Defeitos from "./pages/Defeitos";
 import Recuperacao from "./pages/Recuperacao";
 import RMA from "./pages/RMA";
+import Status from "./pages/Status";
 import Auth from "./pages/Auth";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
                           <Route path="/producao" element={<Producao />} />
                           <Route path="/manutencoes" element={<Manutencoes />} />
                           <Route path="/rma" element={<RMA />} />
+                          <Route path="/status" element={<Status />} />
                           <Route path="/relatorios" element={<Relatorios />} />
                           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                           <Route path="*" element={<NotFound />} />

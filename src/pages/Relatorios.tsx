@@ -103,14 +103,149 @@ export default function Relatorios() {
   const entradas = getOperacoesPorTipo('entrada');
   const saidas = getOperacoesPorTipo('saida');
   
-  // Agrupar operações por usuário para a tabela de lançamentos
-  const lancamentosPorUsuario = operacoes.reduce((acc, operacao) => {
-    if (!acc[operacao.usuario]) {
-      acc[operacao.usuario] = [];
-    }
-    acc[operacao.usuario].push(operacao);
-    return acc;
-  }, {} as Record<string, typeof operacoes>);
+  // Estados para lançamentos por usuário 
+  const [lancamentosPorUsuario, setLancamentosPorUsuario] = useState<Record<string, any[]>>({});
+  
+  // Buscar dados de lançamentos por usuário usando Supabase
+  useEffect(() => {
+    const fetchLancamentos = async () => {
+      try {
+        // Buscar todas as operações de movimentação do estoque
+        const { data: movimentacoes, error: movError } = await supabase
+          .from('movimentacoes_estoque')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (movError) throw movError;
+
+        // Buscar dados de produção
+        const { data: producoes, error: prodError } = await supabase
+          .from('producao_diaria')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (prodError) throw prodError;
+
+        // Buscar dados de defeitos
+        const { data: defeitosData, error: defError } = await supabase
+          .from('defeitos')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (defError) throw defError;
+
+        // Buscar dados de recebimentos
+        const { data: recebimentosData, error: recError } = await supabase
+          .from('recebimentos')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (recError) throw recError;
+
+        // Buscar dados de RMAs
+        const { data: rmas, error: rmaError } = await supabase
+          .from('rmas')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (rmaError) throw rmaError;
+
+        // Buscar dados de recuperações
+        const { data: recuperacoesData, error: recupError } = await supabase
+          .from('recuperacoes')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (recupError) throw recupError;
+
+        // Agrupar todos os lançamentos por usuário
+        const agrupados: Record<string, any[]> = {};
+        
+        // Adicionar movimentações
+        (movimentacoes || []).forEach(mov => {
+          const usuario = mov.funcionario_id || 'Sistema';
+          if (!agrupados[usuario]) agrupados[usuario] = [];
+          agrupados[usuario].push({
+            tipo: 'Movimentação',
+            data: mov.created_at,
+            descricao: `${mov.tipo_movimento} - ${mov.quantidade} unidades`,
+            detalhes: mov
+          });
+        });
+
+        // Adicionar produções
+        (producoes || []).forEach(prod => {
+          const usuario = prod.colaborador || 'Sistema';
+          if (!agrupados[usuario]) agrupados[usuario] = [];
+          agrupados[usuario].push({
+            tipo: 'Produção',
+            data: prod.created_at,
+            descricao: `${prod.modelo} - ${prod.quantidade_equipamentos} equipamentos`,
+            detalhes: prod
+          });
+        });
+
+        // Adicionar defeitos
+        (defeitosData || []).forEach(def => {
+          const usuario = def.responsavel || 'Sistema';
+          if (!agrupados[usuario]) agrupados[usuario] = [];
+          agrupados[usuario].push({
+            tipo: 'Defeito',
+            data: def.created_at,
+            descricao: `${def.tipo_defeito} - ${def.quantidade} unidades`,
+            detalhes: def
+          });
+        });
+
+        // Adicionar recebimentos
+        (recebimentosData || []).forEach(rec => {
+          const usuario = rec.responsavel_recebimento || 'Sistema';
+          if (!agrupados[usuario]) agrupados[usuario] = [];
+          agrupados[usuario].push({
+            tipo: 'Recebimento',
+            data: rec.created_at,
+            descricao: `Documento ${rec.numero_documento}`,
+            detalhes: rec
+          });
+        });
+
+        // Adicionar RMAs
+        (rmas || []).forEach(rma => {
+          const usuario = rma.tecnico_responsavel || 'Sistema';
+          if (!agrupados[usuario]) agrupados[usuario] = [];
+          agrupados[usuario].push({
+            tipo: 'RMA',
+            data: rma.created_at,
+            descricao: `${rma.numero_rma} - ${rma.equipamento}`,
+            detalhes: rma
+          });
+        });
+
+        // Adicionar recuperações
+        (recuperacoesData || []).forEach(rec => {
+          const usuario = rec.responsavel || 'Sistema';
+          if (!agrupados[usuario]) agrupados[usuario] = [];
+          agrupados[usuario].push({
+            tipo: 'Recuperação',
+            data: rec.created_at,
+            descricao: `${rec.equipamento} - ${rec.macs.length} equipamentos`,
+            detalhes: rec
+          });
+        });
+
+        // Ordenar por data mais recente
+        Object.keys(agrupados).forEach(usuario => {
+          agrupados[usuario].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+        });
+
+        setLancamentosPorUsuario(agrupados);
+      } catch (error) {
+        console.error('Erro ao buscar lançamentos:', error);
+      }
+    };
+
+    fetchLancamentos();
+  }, []);
 
   const formatData = (data: Date | string) => {
     const dateObj = typeof data === 'string' ? new Date(data) : data;
@@ -991,13 +1126,63 @@ export default function Relatorios() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {relatorios.filter(r => r.tipo === 'garantias').length === 0 ? (
+                {/* Mostrar garantias diretamente do hook */}
+                {garantias.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground">Nenhum relatório de garantias salvo</p>
+                    <p className="text-muted-foreground">Nenhuma garantia registrada</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {relatorios.filter(r => r.tipo === 'garantias').map((relatorio) => (
+                    <div className="grid gap-4 md:grid-cols-3 mb-4">
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="text-2xl font-bold text-success">{garantias.filter(g => g.status === 'Ativa').length}</div>
+                          <p className="text-sm text-muted-foreground">Garantias Ativas</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="text-2xl font-bold text-warning">{garantias.filter(g => g.status === 'Próximo ao Vencimento').length}</div>
+                          <p className="text-sm text-muted-foreground">Próximas ao Vencimento</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="text-2xl font-bold text-destructive">{garantias.filter(g => g.status === 'Expirada').length}</div>
+                          <p className="text-sm text-muted-foreground">Expiradas</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {garantias.map((garantia) => (
+                        <div key={garantia.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">{garantia.equipamento_nome}</h4>
+                            <Badge variant={
+                              garantia.status === 'Ativa' ? 'default' : 
+                              garantia.status === 'Próximo ao Vencimento' ? 'secondary' : 
+                              'destructive'
+                            }>
+                              {garantia.status}
+                            </Badge>
+                          </div>
+                          <div className="text-sm space-y-1">
+                            <p><strong>OS:</strong> {garantia.numero_os}</p>
+                            <p><strong>Serviço:</strong> {garantia.servico_realizado}</p>
+                            <p><strong>Data Serviço:</strong> {new Date(garantia.data_servico).toLocaleDateString('pt-BR')}</p>
+                            <p><strong>Garantia expira:</strong> {new Date(garantia.garantia_expira).toLocaleDateString('pt-BR')}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Relatórios salvos de garantias */}
+                    {relatorios.filter(r => r.tipo === 'garantias').length > 0 && (
+                      <div className="mt-6">
+                        <h4 className="font-medium mb-3">Relatórios Salvos:</h4>
+                        <div className="space-y-3">
+                          {relatorios.filter(r => r.tipo === 'garantias').map((relatorio) => (
                       <div key={relatorio.id} className="border rounded-lg p-4 space-y-2">
                         <div className="flex items-center justify-between">
                           <div>
@@ -1027,7 +1212,10 @@ export default function Relatorios() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -1098,20 +1286,36 @@ export default function Relatorios() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {Object.entries(lancamentosPorUsuario).map(([usuario, operacoesUsuario]) => (
-                    <div key={usuario} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{usuario}</h4>
-                        <Badge variant="outline">{operacoesUsuario.length} operações</Badge>
+                {Object.keys(lancamentosPorUsuario).length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Nenhum lançamento encontrado</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {Object.entries(lancamentosPorUsuario).map(([usuario, operacoesUsuario]) => (
+                      <div key={usuario} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium">{usuario}</h4>
+                          <Badge variant="outline">{operacoesUsuario.length} lançamentos</Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <p>Última operação: {formatData(operacoesUsuario[0]?.data)}</p>
+                          <p>Tipos: {Array.from(new Set(operacoesUsuario.map((op: any) => op.tipo))).join(', ')}</p>
+                          <div className="mt-2 space-y-1">
+                            <p className="font-medium text-foreground">Últimos lançamentos:</p>
+                            {operacoesUsuario.slice(0, 3).map((op: any, index) => (
+                              <div key={index} className="text-xs bg-muted/50 p-2 rounded">
+                                <span className="font-medium">{op.tipo}:</span> {op.descricao}
+                                <br />
+                                <span className="text-muted-foreground">{formatData(op.data)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        <p>Última operação: {formatData(operacoesUsuario[0]?.data)}</p>
-                        <p>Tipos: {Array.from(new Set(operacoesUsuario.map(op => op.tipo))).join(', ')}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, CheckCircle2, AlertCircle, Copy } from "lucide-react";
+import { Plus, X, CheckCircle2, AlertCircle, Trash2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseRecuperacoes } from "@/hooks/useSupabaseRecuperacoes";
+import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
 import { useSupabaseEquipamentos } from "@/hooks/useSupabaseEquipamentos";
 import { useSupabaseFuncionarios } from "@/hooks/useSupabaseFuncionarios";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,26 +23,27 @@ export default function Recuperacao() {
   const { 
     recuperacoes, 
     loading, 
-    createRecuperacao
+    createRecuperacao, 
+    deleteRecuperacao
   } = useSupabaseRecuperacoes();
 
   // Estados para recuperação
   const [equipamentoSelecionado, setEquipamentoSelecionado] = useState("");
+  const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
   const [problema, setProblema] = useState("");
   const [solucao, setSolucao] = useState("");
   const [macAtual, setMacAtual] = useState("");
   const [macs, setMacs] = useState<string[]>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState("");
-  
-  // Estados para filtros do formulário
-  const [filtroEquipamento, setFiltroEquipamento] = useState("");
 
-  const funcionariosAtivos = funcionarios.filter(f => f.aprovado);
-  
-  // Filtrar equipamentos para o select
-  const equipamentosFiltrados = equipamentos.filter(eq => 
-    eq.modelo.toLowerCase().includes(filtroEquipamento.toLowerCase())
-  );
+  const funcionariosAtivos = funcionarios.filter(f => f.status === 'Ativo');
+
+  // Auto-sync equipment selection
+  useEffect(() => {
+    if (selectedEquipment) {
+      setEquipamentoSelecionado(selectedEquipment.nome);
+    }
+  }, [selectedEquipment]);
 
   const adicionarMac = () => {
     if (macAtual.trim() && !macs.includes(macAtual.trim())) {
@@ -111,12 +113,12 @@ export default function Recuperacao() {
       
       // Limpar formulário
       setEquipamentoSelecionado("");
+      setSelectedEquipment(null);
       setProblema("");
       setSolucao("");
       setMacs([]);
       setMacAtual("");
       setResponsavelSelecionado("");
-      setFiltroEquipamento(""); // Limpar também o filtro
 
     } catch (error) {
       console.error('Erro ao registrar recuperação:', error);
@@ -147,30 +149,11 @@ export default function Recuperacao() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmitRecuperacao} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="equipamento">Equipamento</Label>
-                    <div className="space-y-2">
-                      <Input
-                        placeholder="Filtrar equipamentos..."
-                        value={filtroEquipamento}
-                        onChange={(e) => setFiltroEquipamento(e.target.value)}
-                        className="mb-2"
-                      />
-                      <Select value={equipamentoSelecionado} onValueChange={setEquipamentoSelecionado}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o equipamento" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {equipamentosFiltrados.map((eq) => (
-                            <SelectItem key={eq.id} value={eq.modelo}>
-                              {eq.modelo}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <EquipmentSelector
+                      onSelect={setSelectedEquipment}
+                      selectedEquipment={selectedEquipment}
+                    />
 
                   <div>
                     <Label htmlFor="responsavel">Responsável</Label>
@@ -262,10 +245,20 @@ export default function Recuperacao() {
           {/* Lista de Recuperações */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-primary" />
-                Recuperações Recentes
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-primary" />
+                  <CardTitle>Recuperações Recentes</CardTitle>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                  disabled={loading}
+                >
+                  Recarregar
+                </Button>
+              </div>
               <CardDescription>
                 Histórico de equipamentos recuperados
               </CardDescription>
@@ -273,13 +266,15 @@ export default function Recuperacao() {
             <CardContent>
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 {loading ? (
-                  <p className="text-muted-foreground text-center py-8">
+                  <div className="text-muted-foreground text-center py-8">
+                    <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
                     Carregando recuperações...
-                  </p>
+                  </div>
                 ) : recuperacoes.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    Nenhuma recuperação registrada ainda
-                  </p>
+                  <div className="text-muted-foreground text-center py-8 space-y-2">
+                    <p>Nenhuma recuperação registrada ainda</p>
+                    <p className="text-sm">Registre uma recuperação usando o formulário ao lado</p>
+                  </div>
                 ) : (
                   recuperacoes.map((recuperacao) => (
                     <div key={recuperacao.id} className="border rounded-lg p-4 space-y-2">
@@ -297,6 +292,14 @@ export default function Recuperacao() {
                             title="Copiar todos os MACs"
                           >
                             <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteRecuperacao(recuperacao.id)}
+                            className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>

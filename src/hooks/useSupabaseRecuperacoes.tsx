@@ -22,25 +22,37 @@ export const useSupabaseRecuperacoes = () => {
 
   const fetchRecuperacoes = async () => {
     try {
+      console.log('Buscando recuperações...');
       const { data, error } = await supabase
         .from('recuperacoes')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro na consulta Supabase:', error);
+        throw error;
+      }
       
-      const recuperacoesData = (data || []).map(item => ({
-        id: item.id,
-        equipamento: item.equipamento,
-        problema: item.problema,
-        solucao: item.solucao,
-        macs: item.macs,
-        responsavel: item.responsavel,
-        data_recuperacao: item.data_recuperacao,
-        created_at: item.created_at,
-        updated_at: item.updated_at
-      }));
+      console.log('Dados brutos recebidos:', data);
       
+      const recuperacoesData = (data || []).map(item => {
+        console.log('Processando item:', item);
+        const recuperacao = {
+          id: item.id,
+          equipamento: item.equipamento,
+          problema: item.problema,
+          solucao: item.solucao,
+          macs: item.macs || [],
+          responsavel: item.responsavel,
+          data_recuperacao: item.data_recuperacao,
+          created_at: item.created_at,
+          updated_at: item.updated_at
+        };
+        console.log('Recuperação processada:', recuperacao);
+        return recuperacao;
+      });
+      
+      console.log('Total de recuperações processadas:', recuperacoesData.length);
       setRecuperacoes(recuperacoesData);
     } catch (error: any) {
       console.error('Erro ao buscar recuperações:', error);
@@ -55,13 +67,20 @@ export const useSupabaseRecuperacoes = () => {
 
   const createRecuperacao = async (recuperacao: Omit<RecuperacaoSupabase, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      console.log('Criando recuperação com dados:', recuperacao);
+
       const { data, error } = await supabase
         .from('recuperacoes')
         .insert([recuperacao])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro do Supabase ao inserir:', error);
+        throw error;
+      }
+
+      console.log('Dados salvos com sucesso:', data);
 
       const novaRecuperacao = {
         id: data.id,
@@ -84,6 +103,7 @@ export const useSupabaseRecuperacoes = () => {
 
       return novaRecuperacao;
     } catch (error: any) {
+      console.error('Erro completo ao registrar recuperação:', error);
       toast({
         variant: "destructive",
         title: "Erro ao registrar recuperação",

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Wrench, Plus, Search, Edit, Eye, Trash2 } from "lucide-react";
+import { Wrench, Plus, Search, Edit, Eye, Trash2, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -31,6 +32,8 @@ export default function Manutencoes() {
   const { equipamentos } = useEquipamento();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedEquipamento, setSelectedEquipamento] = useState<string>("todos");
+  const [selectedStatus, setSelectedStatus] = useState<string>("todos");
   const [selectedManutencao, setSelectedManutencao] = useState<any>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -83,6 +86,8 @@ export default function Manutencoes() {
         return 'bg-orange-500';
       case 'concluida':
         return 'bg-green-500';
+      case 'sem_reparo':
+        return 'bg-purple-500';
       case 'cancelada':
         return 'bg-gray-500';
       default:
@@ -90,11 +95,40 @@ export default function Manutencoes() {
     }
   };
 
-  const filteredManutencoes = manutencoes.filter(manutencao =>
-    manutencao.numeroTarefa.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    manutencao.origemEquipamento.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    manutencao.defeitoEquipamento.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getStatusOrder = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'aberta':
+        return 1;
+      case 'em_andamento':
+        return 2;
+      case 'aguardando_pecas':
+        return 3;
+      case 'concluida':
+        return 4;
+      case 'sem_reparo':
+        return 5;
+      case 'cancelada':
+        return 6;
+      default:
+        return 7;
+    }
+  };
+
+  const filteredManutencoes = manutencoes
+    .filter(manutencao => {
+      const matchesSearch = manutencao.numeroTarefa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        manutencao.origemEquipamento.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        manutencao.defeitoEquipamento.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesEquipamento = selectedEquipamento === "todos" || 
+        getEquipamentoNome(manutencao.equipamentoId) === selectedEquipamento;
+      
+      const matchesStatus = selectedStatus === "todos" || 
+        manutencao.status === selectedStatus;
+      
+      return matchesSearch && matchesEquipamento && matchesStatus;
+    })
+    .sort((a, b) => getStatusOrder(a.status) - getStatusOrder(b.status));
 
   if (loading) {
     return (
@@ -128,8 +162,8 @@ export default function Manutencoes() {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-4">
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
@@ -138,6 +172,36 @@ export default function Manutencoes() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={selectedEquipamento} onValueChange={setSelectedEquipamento}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Equipamento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos Equipamentos</SelectItem>
+              {Array.from(new Set(equipamentos.map(eq => eq.nome))).map(nome => (
+                <SelectItem key={nome} value={nome}>{nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos Status</SelectItem>
+              <SelectItem value="aberta">Aberta</SelectItem>
+              <SelectItem value="em_andamento">Em Andamento</SelectItem>
+              <SelectItem value="aguardando_pecas">Aguardando Peças</SelectItem>
+              <SelectItem value="concluida">Concluída</SelectItem>
+              <SelectItem value="sem_reparo">Sem Reparo</SelectItem>
+              <SelectItem value="cancelada">Cancelada</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

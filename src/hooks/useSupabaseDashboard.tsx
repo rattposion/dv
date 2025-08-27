@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -8,6 +9,7 @@ interface DashboardStats {
   equipamentosComProblemas: number;
   equipamentosRecuperados: number;
   estoquesPorModelo: { [modelo: string]: number };
+  estoqueDisponivelPorModelo: { [modelo: string]: number };
   defeitosPorTipo: { [tipo: string]: number };
   producaoDiaria: Array<{
     colaborador: string;
@@ -15,6 +17,12 @@ interface DashboardStats {
     quantidade_caixas: number;
     quantidade_equipamentos: number;
     data_producao: string;
+  }>;
+  recuperacoesDiarias: Array<{
+    colaborador: string;
+    modelo: string;
+    quantidade: number;
+    data_recuperacao: string;
   }>;
 }
 
@@ -25,8 +33,10 @@ export const useSupabaseDashboard = () => {
     equipamentosComProblemas: 0,
     equipamentosRecuperados: 0,
     estoquesPorModelo: {},
+    estoqueDisponivelPorModelo: {},
     defeitosPorTipo: {},
-    producaoDiaria: []
+    producaoDiaria: [],
+    recuperacoesDiarias: []
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -50,15 +60,21 @@ export const useSupabaseDashboard = () => {
         estoquesPorModelo[item.modelo] = item.quantidade_disponivel;
       });
 
-      // 3. Buscar caixas do inventário para calcular estoque disponível real
+      // 3. Buscar caixas do inventário para calcular estoque disponível real e por modelo
       const { data: caixasInventario, error: caixasError } = await supabase
         .from('caixas_inventario')
-        .select('quantidade');
+        .select('quantidade, modelo');
 
       if (caixasError) throw caixasError;
 
       // Estoque disponível = soma de todas as quantidades das caixas no inventário
       const estoqueDisponivel = (caixasInventario || []).reduce((total, caixa) => total + caixa.quantidade, 0);
+
+      // Calcular estoque disponível por modelo
+      const estoqueDisponivelPorModelo: { [modelo: string]: number } = {};
+      (caixasInventario || []).forEach(caixa => {
+        estoqueDisponivelPorModelo[caixa.modelo] = (estoqueDisponivelPorModelo[caixa.modelo] || 0) + caixa.quantidade;
+      });
 
       // 4. Buscar total de equipamentos com problemas/defeitos
       const { data: defeitos, error: defeitosError } = await supabase
@@ -84,19 +100,41 @@ export const useSupabaseDashboard = () => {
 
       if (producaoDiariaError) throw producaoDiariaError;
 
-      // 6. Buscar recuperações
+      // 6. Buscar recuperações da tabela recuperacoes
       const { data: recuperacoes, error: recuperacoesError } = await supabase
-        .from('relatorios')
-        .select('dados')
-        .eq('tipo', 'recuperacao');
+        .from('recuperacoes')
+        .select('macs, equipamento, responsavel, data_recuperacao');
 
       if (recuperacoesError) throw recuperacoesError;
 
       // Calcular total de equipamentos recuperados
       const equipamentosRecuperados = (recuperacoes || []).reduce((total, item) => {
-        const dados = item.dados as any;
-        return total + (dados?.macs?.length || 0);
+        return total + (item.macs?.length || 0);
       }, 0);
+
+      // 7. Buscar recuperações do dia atual agrupadas por colaborador
+      const inicioHoje = `${hoje} 00:00:00`;
+      const fimHoje = `${hoje} 23:59:59`;
+      
+      const { data: recuperacoesDia, error: recuperacoesDiaError } = await supabase
+        .from('recuperacoes')
+        .select('equipamento, responsavel, macs, data_recuperacao')
+        .gte('data_recuperacao', inicioHoje)
+        .lte('data_recuperacao', fimHoje);
+
+      if (recuperacoesDiaError) throw recuperacoesDiaError;
+
+      console.log('Recuperações do dia encontradas:', recuperacoesDia);
+
+      // Processar recuperações por colaborador e modelo
+      const recuperacoesDiarias = (recuperacoesDia || []).map(item => ({
+        colaborador: item.responsavel,
+        modelo: item.equipamento,
+        quantidade: item.macs?.length || 0,
+        data_recuperacao: item.data_recuperacao
+      }));
+
+      console.log('Recuperações processadas:', recuperacoesDiarias);
 
       setStats({
         totalRecebidos,
@@ -104,8 +142,10 @@ export const useSupabaseDashboard = () => {
         equipamentosComProblemas,
         equipamentosRecuperados,
         estoquesPorModelo,
+        estoqueDisponivelPorModelo,
         defeitosPorTipo,
-        producaoDiaria: producaoDiaria || []
+        producaoDiaria: producaoDiaria || [],
+        recuperacoesDiarias
       });
 
     } catch (error) {
@@ -157,7 +197,7 @@ export const useSupabaseDashboard = () => {
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'relatorios'
+        table: 'recuperacoes'
       }, () => {
         fetchDashboardStats();
       })
