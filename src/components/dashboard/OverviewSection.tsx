@@ -1,4 +1,4 @@
-import { Package, TruckIcon as Truck, RotateCcw, Activity, AlertTriangle, TrendingUp, Factory, Database, CheckCircle, Calendar, User, Settings } from "lucide-react";
+import { Package, TruckIcon as Truck, RotateCcw, Activity, AlertTriangle, TrendingUp, Factory, Database, CheckCircle, Calendar, User, Settings, Wrench } from "lucide-react";
 import { StatsCard } from "./StatsCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -68,10 +68,10 @@ export function OverviewSection() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Estoque por Modelo
+              Estoque Recebido por Modelo
             </CardTitle>
             <CardDescription>
-              Equipamentos disponíveis no estoque de recebimento
+              Equipamentos recebidos disponíveis por modelo
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -93,7 +93,7 @@ export function OverviewSection() {
                 ))}
                 {Object.keys(stats.estoquesPorModelo).length === 0 && (
                   <p className="text-muted-foreground text-center py-4">
-                    Nenhum modelo em estoque
+                    Nenhum modelo em estoque recebido
                   </p>
                 )}
               </div>
@@ -104,11 +104,11 @@ export function OverviewSection() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Defeitos por Tipo
+              <Package className="h-5 w-5" />
+              Estoque Disponível por Modelo
             </CardTitle>
             <CardDescription>
-              Equipamentos com problemas categorizados
+              Equipamentos disponíveis no inventário por modelo
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -120,19 +120,17 @@ export function OverviewSection() {
               </div>
             ) : (
               <div className="space-y-3">
-                {Object.entries(stats.defeitosPorTipo).map(([tipo, quantidade]) => (
-                  <div key={tipo} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="font-medium capitalize">
-                      {tipo.replace(/_/g, ' ')}
-                    </span>
-                    <Badge variant="destructive">
+                {Object.entries(stats.estoqueDisponivelPorModelo).map(([modelo, quantidade]) => (
+                  <div key={modelo} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="font-medium">{modelo}</span>
+                    <Badge variant={quantidade > 0 ? "default" : "secondary"}>
                       {quantidade} unidades
                     </Badge>
                   </div>
                 ))}
-                {Object.keys(stats.defeitosPorTipo).length === 0 && (
+                {Object.keys(stats.estoqueDisponivelPorModelo).length === 0 && (
                   <p className="text-muted-foreground text-center py-4">
-                    Nenhum defeito registrado
+                    Nenhum modelo disponível no inventário
                   </p>
                 )}
               </div>
@@ -159,55 +157,105 @@ export function OverviewSection() {
                 <div key={i} className="h-8 bg-muted animate-pulse rounded" />
               ))}
             </div>
-          ) : stats.producaoDiaria.length > 0 ? (
+          ) : (stats.producaoDiaria.length > 0 || stats.recuperacoesDiarias.length > 0) ? (
             <div className="space-y-4">
-              {/* Total por modelo */}
-              <div className="grid gap-3">
-                <h4 className="font-medium text-sm text-muted-foreground">Total por Modelo:</h4>
-                {Object.entries(
-                  stats.producaoDiaria.reduce((acc, producao) => {
-                    if (!acc[producao.modelo]) {
-                      acc[producao.modelo] = {
-                        caixas: 0,
-                        equipamentos: 0
-                      };
-                    }
-                    acc[producao.modelo].caixas += producao.quantidade_caixas;
-                    acc[producao.modelo].equipamentos += producao.quantidade_equipamentos;
-                    return acc;
-                  }, {} as { [modelo: string]: { caixas: number; equipamentos: number } })
-                ).map(([modelo, totais]) => (
-                  <div key={modelo} className="flex items-center justify-between p-3 bg-card rounded-lg border">
-                    <span className="font-medium">{modelo}</span>
-                    <div className="flex gap-3 text-sm">
-                      <Badge variant="outline">{totais.caixas} caixas</Badge>
-                      <Badge variant="default">{totais.equipamentos} equipamentos</Badge>
+              {/* Total por modelo - Produção */}
+              {stats.producaoDiaria.length > 0 && (
+                <div className="grid gap-3">
+                  <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+                    <Factory className="h-4 w-4" />
+                    Produção por Modelo:
+                  </h4>
+                  {Object.entries(
+                    stats.producaoDiaria.reduce((acc, producao) => {
+                      if (!acc[producao.modelo]) {
+                        acc[producao.modelo] = {
+                          caixas: 0,
+                          equipamentos: 0
+                        };
+                      }
+                      acc[producao.modelo].caixas += producao.quantidade_caixas;
+                      acc[producao.modelo].equipamentos += producao.quantidade_equipamentos;
+                      return acc;
+                    }, {} as { [modelo: string]: { caixas: number; equipamentos: number } })
+                  ).map(([modelo, totais]) => (
+                    <div key={modelo} className="flex items-center justify-between p-3 bg-card rounded-lg border">
+                      <span className="font-medium">{modelo}</span>
+                      <div className="flex gap-3 text-sm">
+                        <Badge variant="outline">{totais.caixas} caixas</Badge>
+                        <Badge variant="default">{totais.equipamentos} equipamentos</Badge>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Total por modelo - Recuperação */}
+              {stats.recuperacoesDiarias.length > 0 && (
+                <div className="grid gap-3">
+                  <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+                    <Wrench className="h-4 w-4" />
+                    Recuperação por Modelo:
+                  </h4>
+                  {Object.entries(
+                    stats.recuperacoesDiarias.reduce((acc, recuperacao) => {
+                      if (!acc[recuperacao.modelo]) {
+                        acc[recuperacao.modelo] = 0;
+                      }
+                      acc[recuperacao.modelo] += recuperacao.quantidade;
+                      return acc;
+                    }, {} as { [modelo: string]: number })
+                  ).map(([modelo, quantidade]) => (
+                    <div key={`recuperacao-${modelo}`} className="flex items-center justify-between p-3 bg-success/10 rounded-lg border border-success/20">
+                      <span className="font-medium">{modelo}</span>
+                      <Badge variant="secondary" className="bg-success/20 text-success-foreground">
+                        {quantidade} recuperados
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Total Geral */}
-              <div className="border-t pt-4">
-                <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-primary">Total Geral do Dia:</h4>
-                    <div className="flex gap-3">
-                      <Badge variant="secondary" className="text-lg px-3 py-1">
-                        {stats.producaoDiaria.reduce((total, p) => total + p.quantidade_caixas, 0)} caixas
-                      </Badge>
-                      <Badge variant="default" className="text-lg px-3 py-1">
-                        {stats.producaoDiaria.reduce((total, p) => total + p.quantidade_equipamentos, 0)} equipamentos
+              <div className="border-t pt-4 space-y-3">
+                {stats.producaoDiaria.length > 0 && (
+                  <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-primary flex items-center gap-2">
+                        <Factory className="h-4 w-4" />
+                        Produção Total do Dia:
+                      </h4>
+                      <div className="flex gap-3">
+                        <Badge variant="secondary" className="text-lg px-3 py-1">
+                          {stats.producaoDiaria.reduce((total, p) => total + p.quantidade_caixas, 0)} caixas
+                        </Badge>
+                        <Badge variant="default" className="text-lg px-3 py-1">
+                          {stats.producaoDiaria.reduce((total, p) => total + p.quantidade_equipamentos, 0)} equipamentos
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {stats.recuperacoesDiarias.length > 0 && (
+                  <div className="bg-success/10 rounded-lg p-4 border border-success/20">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-success flex items-center gap-2">
+                        <Wrench className="h-4 w-4" />
+                        Recuperação Total do Dia:
+                      </h4>
+                      <Badge variant="secondary" className="text-lg px-3 py-1 bg-success/20 text-success-foreground">
+                        {stats.recuperacoesDiarias.reduce((total, r) => total + r.quantidade, 0)} equipamentos
                       </Badge>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           ) : (
             <div className="text-center py-6 text-muted-foreground">
               <Factory className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-              <p>Nenhuma produção registrada hoje</p>
+              <p>Nenhuma produção ou recuperação registrada hoje</p>
             </div>
           )}
         </CardContent>
@@ -221,7 +269,7 @@ export function OverviewSection() {
             Produção Diária - {new Date().toLocaleDateString('pt-BR')}
           </CardTitle>
           <CardDescription>
-            Produção de cada colaborador no dia de hoje
+            Produção e recuperação de cada colaborador no dia de hoje
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -231,49 +279,86 @@ export function OverviewSection() {
                 <div key={i} className="h-12 bg-muted animate-pulse rounded" />
               ))}
             </div>
-          ) : stats.producaoDiaria.length > 0 ? (
+          ) : stats.producaoDiaria.length > 0 || stats.recuperacoesDiarias.length > 0 ? (
             <div className="space-y-4">
-              {/* Agrupar por colaborador */}
-              {Object.entries(
-                stats.producaoDiaria.reduce((acc, producao) => {
-                  if (!acc[producao.colaborador]) {
-                    acc[producao.colaborador] = [];
-                  }
-                  acc[producao.colaborador].push(producao);
-                  return acc;
-                }, {} as { [colaborador: string]: typeof stats.producaoDiaria })
-              ).map(([colaborador, producoes]) => {
-                const totalCaixas = producoes.reduce((total, p) => total + p.quantidade_caixas, 0);
-                const totalEquipamentos = producoes.reduce((total, p) => total + p.quantidade_equipamentos, 0);
-                
-                return (
-                  <div key={colaborador} className="border rounded-lg p-4 bg-muted/30">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        <span className="font-semibold capitalize">{colaborador}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Badge variant="outline">{totalCaixas} caixas</Badge>
-                        <Badge variant="default">{totalEquipamentos} equipamentos</Badge>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {producoes.map((producao, index) => (
-                        <div key={index} className="flex items-center justify-between text-sm">
-                          <span className="font-medium">{producao.modelo}</span>
-                          <div className="flex gap-2 text-muted-foreground">
-                            <span>{producao.quantidade_caixas} caixa{producao.quantidade_caixas !== 1 ? 's' : ''}</span>
-                            <span>•</span>
-                            <span>{producao.quantidade_equipamentos} equipamentos</span>
-                          </div>
+              {/* Combinar colaboradores de produção e recuperação */}
+              {(() => {
+                const colaboradores = new Set([
+                  ...stats.producaoDiaria.map(p => p.colaborador),
+                  ...stats.recuperacoesDiarias.map(r => r.colaborador)
+                ]);
+
+                return Array.from(colaboradores).map(colaborador => {
+                  const producoes = stats.producaoDiaria.filter(p => p.colaborador === colaborador);
+                  const recuperacoes = stats.recuperacoesDiarias.filter(r => r.colaborador === colaborador);
+                  
+                  const totalCaixas = producoes.reduce((total, p) => total + p.quantidade_caixas, 0);
+                  const totalEquipamentos = producoes.reduce((total, p) => total + p.quantidade_equipamentos, 0);
+                  const totalRecuperados = recuperacoes.reduce((total, r) => total + r.quantidade, 0);
+                  
+                  return (
+                    <div key={colaborador} className="border rounded-lg p-4 bg-muted/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span className="font-semibold capitalize">{colaborador}</span>
                         </div>
-                      ))}
+                        <div className="flex gap-2">
+                          {producoes.length > 0 && (
+                            <>
+                              <Badge variant="outline">{totalCaixas} caixas</Badge>
+                              <Badge variant="default">{totalEquipamentos} equipamentos</Badge>
+                            </>
+                          )}
+                          {recuperacoes.length > 0 && (
+                            <Badge variant="secondary" className="bg-success/20 text-success-foreground">
+                              {totalRecuperados} recuperados
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {/* Produção */}
+                        {producoes.length > 0 && (
+                          <div className="space-y-2">
+                            <h5 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                              <Factory className="h-3 w-3" />
+                              Produção:
+                            </h5>
+                            {producoes.map((producao, index) => (
+                              <div key={index} className="flex items-center justify-between text-sm pl-4">
+                                <span className="font-medium">{producao.modelo}</span>
+                                <div className="flex gap-2 text-muted-foreground">
+                                  <span>{producao.quantidade_caixas} caixa{producao.quantidade_caixas !== 1 ? 's' : ''}</span>
+                                  <span>•</span>
+                                  <span>{producao.quantidade_equipamentos} equipamentos</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Recuperação */}
+                        {recuperacoes.length > 0 && (
+                          <div className="space-y-2">
+                            <h5 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                              <Wrench className="h-3 w-3" />
+                              Recuperação:
+                            </h5>
+                            {recuperacoes.map((recuperacao, index) => (
+                              <div key={index} className="flex items-center justify-between text-sm pl-4">
+                                <span className="font-medium">{recuperacao.modelo}</span>
+                                <span className="text-success text-sm">{recuperacao.quantidade} equipamentos</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">

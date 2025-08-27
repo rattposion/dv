@@ -85,6 +85,8 @@ export function ViewManutencaoModal({ manutencao, open, onOpenChange }: ViewManu
         return 'bg-orange-500';
       case 'concluida':
         return 'bg-green-500';
+      case 'sem_reparo':
+        return 'bg-purple-500';
       case 'cancelada':
         return 'bg-gray-500';
       default:
@@ -198,6 +200,7 @@ export function ViewManutencaoModal({ manutencao, open, onOpenChange }: ViewManu
                     <SelectItem value="em_andamento">Em Andamento</SelectItem>
                     <SelectItem value="aguardando_pecas">Aguardando Peças</SelectItem>
                     <SelectItem value="concluida">Concluída</SelectItem>
+                    <SelectItem value="sem_reparo">Sem Reparo</SelectItem>
                     <SelectItem value="cancelada">Cancelada</SelectItem>
                   </SelectContent>
                 </Select>

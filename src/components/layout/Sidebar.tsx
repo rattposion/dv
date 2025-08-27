@@ -32,6 +32,7 @@ const menuItems = [
   { icon: Settings, label: "Manutenções", path: "/manutencoes" },
   { icon: RotateCcw, label: "RMA", path: "/rma" },
   { icon: BarChart3, label: "Relatórios", path: "/relatorios" },
+  { icon: Settings, label: "Status", path: "/status" },
 ];
 
 interface SidebarProps {
