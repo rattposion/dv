@@ -70,8 +70,71 @@ export function MacAddressInput({
     onChange(addresses.join(" | "));
   };
 
+  // Processar múltiplos MACs colados
+  const processBulkMacs = (text: string) => {
+    // Separar por quebras de linha, vírgulas, espaços múltiplos ou pipes
+    const potentialMacs = text.split(/[\n\r,|]+|\s{2,}/)
+      .map(mac => mac.trim())
+      .filter(mac => mac.length > 0);
+
+    const validMacs: string[] = [];
+    const invalidMacs: string[] = [];
+
+    potentialMacs.forEach(mac => {
+      // Tentar formatar o MAC (tanto com quanto sem separadores)
+      let formattedMac = formatMacAddress(mac);
+      
+      // Se não tem separadores e tem 12 caracteres hex, é um MAC válido
+      if (mac.length === 12 && /^[0-9A-Fa-f]{12}$/.test(mac)) {
+        formattedMac = mac.match(/.{1,2}/g)?.join(':') || mac;
+      }
+      
+      if (validateMacAddress(formattedMac)) {
+        validMacs.push(formattedMac);
+      } else if (mac.length > 0) {
+        invalidMacs.push(mac);
+      }
+    });
+
+    // Adicionar MACs válidos
+    let addedCount = 0;
+    validMacs.forEach(mac => {
+      if (!macAddresses.includes(mac.toUpperCase())) {
+        addedCount++;
+      }
+    });
+
+    if (validMacs.length > 0) {
+      const uniqueValidMacs = validMacs.filter(mac => !macAddresses.includes(mac.toUpperCase()));
+      const newMacAddresses = [...macAddresses, ...uniqueValidMacs.map(mac => mac.toUpperCase())];
+      setMacAddresses(newMacAddresses);
+      updateParentValue(newMacAddresses);
+
+      toast({
+        title: "MACs adicionados",
+        description: `${addedCount} MAC${addedCount !== 1 ? 's' : ''} adicionado${addedCount !== 1 ? 's' : ''} com sucesso`,
+      });
+    }
+
+    if (invalidMacs.length > 0) {
+      toast({
+        title: "MACs inválidos encontrados",
+        description: `${invalidMacs.length} MAC${invalidMacs.length !== 1 ? 's' : ''} com formato inválido: ${invalidMacs.slice(0, 3).join(', ')}${invalidMacs.length > 3 ? '...' : ''}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
+    
+    // Verificar se há múltiplos MACs (colagem)
+    if (input.includes('\n') || input.includes(',') || /\s{2,}/.test(input) || 
+        (input.length > 20 && /^[0-9A-Fa-f\s:,-|]+$/.test(input))) {
+      processBulkMacs(input);
+      setCurrentInput("");
+      return;
+    }
     
     // Verificar se contém pipe
     if (input.includes("|")) {
@@ -188,8 +251,9 @@ export function MacAddressInput({
         <ul className="list-disc list-inside space-y-0.5 ml-4">
           <li>Digite o MAC e use <code className="bg-muted px-1 rounded">|</code> para adicionar automaticamente</li>
           <li>Pressione <kbd className="bg-muted px-1.5 py-0.5 rounded text-xs">Enter</kbd> ou <kbd className="bg-muted px-1.5 py-0.5 rounded text-xs">Tab</kbd> para adicionar</li>
+          <li><strong>Cole múltiplos MACs:</strong> Separados por linha, vírgula ou espaços duplos</li>
+          <li>Formatos aceitos: <code className="bg-muted px-1 rounded">AA:BB:CC:DD:EE:FF</code> ou <code className="bg-muted px-1 rounded">AABBCCDDEEFF</code></li>
           <li><span className="text-warning">⚠️ O número de MACs deve corresponder à quantidade de equipamentos</span></li>
-          <li>Formato aceito: AA:BB:CC:DD:EE:FF (formatação automática)</li>
         </ul>
       </div>
     </div>
