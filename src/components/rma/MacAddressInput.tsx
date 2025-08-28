@@ -177,13 +177,18 @@ export function MacAddressInput({
         </Button>
       </div>
 
-      {/* Dicas de uso */}
+      {/* Contador de MACs e dicas */}
       <div className="text-xs text-muted-foreground space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="font-medium">
+            MACs cadastrados: <span className="text-primary">{macAddresses.length}</span>
+          </span>
+        </div>
         <p>💡 <strong>Dicas:</strong></p>
         <ul className="list-disc list-inside space-y-0.5 ml-4">
           <li>Digite o MAC e use <code className="bg-muted px-1 rounded">|</code> para adicionar automaticamente</li>
           <li>Pressione <kbd className="bg-muted px-1.5 py-0.5 rounded text-xs">Enter</kbd> ou <kbd className="bg-muted px-1.5 py-0.5 rounded text-xs">Tab</kbd> para adicionar</li>
-          <li>Backspace no campo vazio remove o último MAC</li>
+          <li><span className="text-warning">⚠️ O número de MACs deve corresponder à quantidade de equipamentos</span></li>
           <li>Formato aceito: AA:BB:CC:DD:EE:FF (formatação automática)</li>
         </ul>
       </div>

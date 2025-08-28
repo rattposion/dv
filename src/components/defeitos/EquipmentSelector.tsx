@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Search, Monitor, MapPin, Package } from 'lucide-react';
 import { useEquipamento } from '@/contexts/EquipamentoContext';
@@ -72,6 +72,9 @@ export function EquipmentSelector({ onSelect, selectedEquipment }: EquipmentSele
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Selecionar Equipamento</DialogTitle>
+            <DialogDescription>
+              Escolha um equipamento da lista para registrar o defeito
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
