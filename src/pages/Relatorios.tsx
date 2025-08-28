@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FileDown, BarChart3, TrendingUp, Calendar, Filter, ArrowUp, ArrowDown, Package, User, MapPin, Clock, Wrench, AlertTriangle, Truck, FileText, Save, Trash2, Download, Eye, Paperclip, ExternalLink, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -521,6 +521,9 @@ export default function Relatorios() {
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Gerar Novo Relatório</DialogTitle>
+                  <DialogDescription>
+                    Configure e gere um novo relatório personalizado do sistema
+                  </DialogDescription>
                 </DialogHeader>
                 
                 <div className="space-y-4">
@@ -1328,6 +1331,9 @@ export default function Relatorios() {
               <DialogTitle>
                 {selectedRelatorio?.titulo}
               </DialogTitle>
+              <DialogDescription>
+                Visualização completa dos dados do relatório selecionado
+              </DialogDescription>
             </DialogHeader>
             {selectedRelatorio && (
               <div className="space-y-4">
