@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertTriangle, Plus, Calendar, User, Search, FileWarning, Camera, ExternalLink, Package, X, Monitor } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -263,9 +263,6 @@ export default function Defeitos() {
           <DialogContent className="max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto mx-2">
             <DialogHeader>
               <DialogTitle className="text-lg sm:text-xl">Registrar Novo Defeito</DialogTitle>
-              <DialogDescription>
-                Preencha os dados do equipamento com defeito para criar um registro
-              </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">

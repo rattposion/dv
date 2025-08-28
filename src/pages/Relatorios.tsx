@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FileDown, BarChart3, TrendingUp, Calendar, Filter, ArrowUp, ArrowDown, Package, User, MapPin, Clock, Wrench, AlertTriangle, Truck, FileText, Save, Trash2, Download, Eye, Paperclip, ExternalLink, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,6 +23,7 @@ import { useSupabaseCaixasInventario } from "@/hooks/useSupabaseCaixasInventario
 import { useSupabaseRecuperacoes } from "@/hooks/useSupabaseRecuperacoes";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useAutoRelatorios } from "@/hooks/useAutoRelatorios";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -49,6 +50,9 @@ export default function Relatorios() {
   const { garantias, loading: loadingGarantias } = useSupabaseGarantias();
   const { caixas: caixasInventario, loading: loadingInventario } = useSupabaseCaixasInventario();
   const { recuperacoes, totalRecuperados } = useSupabaseRecuperacoes();
+  
+  // Inicializar sistema de relatórios automáticos
+  useAutoRelatorios();
 
   // Estados para buscar dados de produção e estoque
   const [producoesDiarias, setProducoesDiarias] = useState<any[]>([]);
@@ -521,9 +525,6 @@ export default function Relatorios() {
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Gerar Novo Relatório</DialogTitle>
-                  <DialogDescription>
-                    Configure e gere um novo relatório personalizado do sistema
-                  </DialogDescription>
                 </DialogHeader>
                 
                 <div className="space-y-4">
@@ -674,6 +675,35 @@ export default function Relatorios() {
           </TabsList>
 
           <TabsContent value="salvos">
+            {/* Informações sobre relatórios automáticos */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Sistema de Relatórios Automáticos
+                </CardTitle>
+                <CardDescription>
+                  O sistema gera automaticamente um relatório completo da produção diária às 23:00, incluindo todos os dados de defeitos, recuperações, produções, movimentações e RMAs do dia.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span>Horário: 23:00 (automático)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <span>Frequência: Diária</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    <span>Conteúdo: Produção completa do dia</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -681,7 +711,7 @@ export default function Relatorios() {
                   Todos os Relatórios Salvos
                 </CardTitle>
                 <CardDescription>
-                  Todos os relatórios gerados e salvos pelos usuários no sistema
+                  Todos os relatórios gerados e salvos pelos usuários no sistema, incluindo relatórios automáticos diários gerados às 23:00
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -696,50 +726,71 @@ export default function Relatorios() {
                 ) : (
                   <div className="space-y-4">
                     <div className="grid gap-4">
-                      {relatorios.map((relatorio) => (
-                        <div key={relatorio.id} className="border rounded-lg p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-semibold">{relatorio.titulo}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                Tipo: {relatorio.tipo} | Gerado em: {formatData(relatorio.created_at)}
-                              </p>
-                              {relatorio.periodo_inicio && relatorio.periodo_fim && (
-                                <p className="text-xs text-muted-foreground">
-                                  Período: {format(new Date(relatorio.periodo_inicio), 'dd/MM/yyyy')} - {format(new Date(relatorio.periodo_fim), 'dd/MM/yyyy')}
+                      {relatorios.map((relatorio) => {
+                        const isAutomatico = relatorio.tipo === 'automatico_diario' || relatorio.dados?.automatico;
+                        return (
+                          <div key={relatorio.id} className={`border rounded-lg p-4 space-y-2 ${isAutomatico ? 'border-primary bg-primary/5' : ''}`}>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold">{relatorio.titulo}</h4>
+                                  {isAutomatico && (
+                                    <Badge variant="outline" className="text-xs">
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      Automático
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Tipo: {relatorio.tipo} | Gerado em: {formatData(relatorio.created_at)}
                                 </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedRelatorio(relatorio);
-                                  setIsViewDialogOpen(true);
-                                }}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => exportarRelatorio(relatorio)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteRelatorio(relatorio.id)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                                {relatorio.periodo_inicio && relatorio.periodo_fim && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Período: {format(new Date(relatorio.periodo_inicio), 'dd/MM/yyyy')} - {format(new Date(relatorio.periodo_fim), 'dd/MM/yyyy')}
+                                  </p>
+                                )}
+                                {isAutomatico && relatorio.dados?.resumoDia && (
+                                  <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                                    <p><strong>Resumo do dia:</strong></p>
+                                    <p>• Defeitos: {relatorio.dados.resumoDia.totalDefeitos} | Recuperados: {relatorio.dados.resumoDia.totalRecuperados}</p>
+                                    <p>• Produções: {relatorio.dados.resumoDia.totalProducoes} | Movimentações: {relatorio.dados.resumoDia.totalMovimentacoes}</p>
+                                    <p>• RMAs: {relatorio.dados.resumoDia.totalRMAs} | Recebimentos: {relatorio.dados.resumoDia.totalRecebimentos}</p>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedRelatorio(relatorio);
+                                    setIsViewDialogOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => exportarRelatorio(relatorio)}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                {!isAutomatico && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteRelatorio(relatorio.id)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -851,59 +902,6 @@ export default function Relatorios() {
 
           <TabsContent value="defeitos">
             <div className="space-y-6">
-              {/* Relatórios salvos de defeitos */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5" />
-                    Relatórios Salvos - Defeitos
-                  </CardTitle>
-                  <CardDescription>
-                    Relatórios de defeitos salvos pelos usuários
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {relatorios.filter(r => r.tipo === 'defeitos').length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">Nenhum relatório de defeitos salvo</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {relatorios.filter(r => r.tipo === 'defeitos').map((relatorio) => (
-                        <div key={relatorio.id} className="border rounded-lg p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-semibold">{relatorio.titulo}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                Gerado em: {formatData(relatorio.created_at)}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedRelatorio(relatorio);
-                                  setIsViewDialogOpen(true);
-                                }}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => exportarRelatorio(relatorio)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
 
               {/* Resumo atual de defeitos */}
               <Card>
@@ -931,6 +929,75 @@ export default function Relatorios() {
                       </CardContent>
                     </Card>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Lista detalhada de defeitos */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    Lista de Defeitos Registrados
+                  </CardTitle>
+                  <CardDescription>
+                    Todos os defeitos registrados no sistema
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {defeitos.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">Nenhum defeito registrado</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Equipamento</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead>Quantidade</TableHead>
+                            <TableHead>Responsável</TableHead>
+                            <TableHead>Origem</TableHead>
+                            <TableHead>Destino</TableHead>
+                            <TableHead>Descrição</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {defeitos.map((defeito) => (
+                            <TableRow key={defeito.id}>
+                              <TableCell className="text-sm">
+                                {formatData(defeito.created_at)}
+                              </TableCell>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{defeito.equipamento}</div>
+                                  <div className="text-sm text-muted-foreground">{defeito.modelo}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={
+                                  defeito.tipo_defeito === 'queimado' ? 'destructive' :
+                                  defeito.tipo_defeito === 'defeito_funcionamento' ? 'secondary' :
+                                  defeito.tipo_defeito === 'defeito_fabrica' ? 'outline' :
+                                  'default'
+                                }>
+                                  {defeito.tipo_defeito}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-medium">{defeito.quantidade}</TableCell>
+                              <TableCell className="text-sm">{defeito.responsavel}</TableCell>
+                              <TableCell className="text-sm">{defeito.origem}</TableCell>
+                              <TableCell className="text-sm">{defeito.destino}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                                {defeito.descricao_defeito}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1331,9 +1398,6 @@ export default function Relatorios() {
               <DialogTitle>
                 {selectedRelatorio?.titulo}
               </DialogTitle>
-              <DialogDescription>
-                Visualização completa dos dados do relatório selecionado
-              </DialogDescription>
             </DialogHeader>
             {selectedRelatorio && (
               <div className="space-y-4">
