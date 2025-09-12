@@ -47,10 +47,10 @@ ON public.caixas_inventario
 FOR UPDATE
 USING (auth.role() = 'authenticated'::text);
 
-CREATE POLICY "Only admins can delete caixas_inventario"
+CREATE POLICY "Authenticated users can delete caixas_inventario"
 ON public.caixas_inventario
 FOR DELETE
-USING (has_role(auth.uid(), 'admin'::app_role));
+USING (auth.role() = 'authenticated'::text);
 
 -- Políticas para garantias_equipamentos
 CREATE POLICY "Authenticated users can view garantias_equipamentos"
