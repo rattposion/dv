@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useHistorico } from "@/contexts/HistoricoContext";
 import { useFuncionario } from "@/contexts/FuncionarioContext";
+import { useEstoque } from "@/contexts/EstoqueContext";
+import { useInventario } from "@/contexts/InventarioContext";
 import { FileUploadSaida } from "@/components/saida/FileUploadSaida";
 import { useSupabaseRMA } from "@/hooks/useSupabaseRMA";
 import { useSupabaseCaixasInventario } from "@/hooks/useSupabaseCaixasInventario";
+import { useSupabaseMovimentacoes } from "@/hooks/useSupabaseMovimentacoes";
 import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
 import { FileUploadRMA } from "@/components/rma/FileUploadRMA";
 
@@ -56,10 +59,26 @@ export default function Saida() {
   const [currentMacRMA, setCurrentMacRMA] = useState("");
   const [anexosRMA, setAnexosRMA] = useState<string[]>([]);
   const { toast } = useToast();
-  const { caixas: caixasDisponiveis, removeCaixa, loading: loadingCaixas } = useSupabaseCaixasInventario();
+  const { caixas: supabaseCaixas, removeCaixa, loading: loadingCaixas } = useSupabaseCaixasInventario();
   const { addOperacao } = useHistorico();
   const { funcionariosAprovados } = useFuncionario();
   const { createRMA, loading: rmaLoading } = useSupabaseRMA();
+  const { diminuirEstoque } = useEstoque();
+  const { caixas: caixasDisponiveis, removeCaixa: removeInventarioCaixa, syncWithSupabase } = useInventario();
+  const { addOperacao: addOperacaoSupabase } = useSupabaseMovimentacoes();
+  
+  // Sincronizar dados do Supabase com o contexto local apenas na inicialização
+  useEffect(() => {
+    console.log('useEffect Saida executado:');
+    console.log('- supabaseCaixas.length:', supabaseCaixas?.length || 0);
+    console.log('- caixasDisponiveis.length:', caixasDisponiveis.length);
+    console.log('- Condição atendida:', supabaseCaixas && supabaseCaixas.length > 0 && caixasDisponiveis.length === 0);
+    
+    if (supabaseCaixas && supabaseCaixas.length > 0 && caixasDisponiveis.length === 0) {
+      console.log('Sincronizando caixas do Supabase com contexto local:', supabaseCaixas.length);
+      syncWithSupabase(supabaseCaixas);
+    }
+  }, [supabaseCaixas.length, syncWithSupabase, caixasDisponiveis.length]);
 
   const caixasSelecionadasData = caixasDisponiveis.filter(c => selectedCaixas.includes(c.id));
   const totalQuantidadeSelecionada = caixasSelecionadasData.reduce((total, caixa) => total + caixa.quantidade, 0);
@@ -70,10 +89,10 @@ export default function Saida() {
   );
 
   const handleRegistrarSaida = async () => {
-    // Verificar se há pelo menos uma caixa selecionada (qualquer dos métodos)
-    const caixaSelecionadaId = selectedCaixa || (selectedCaixas.length > 0 ? selectedCaixas[0] : null);
+    // Determinar quais caixas processar
+    const caixasParaProcessar = selectedCaixas.length > 0 ? selectedCaixas : (selectedCaixa ? [selectedCaixa] : []);
     
-    if (!caixaSelecionadaId || !responsavelSaida || !destino) {
+    if (caixasParaProcessar.length === 0 || !responsavelSaida || !destino) {
       toast({
         title: "Campos obrigatórios",
         description: "Selecione uma caixa e preencha todos os campos obrigatórios",
@@ -82,36 +101,70 @@ export default function Saida() {
       return;
     }
 
-    const caixa = caixasDisponiveis.find(c => c.id === caixaSelecionadaId);
-    if (!caixa) {
-      toast({
-        title: "Erro",
-        description: "Caixa não encontrada",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
-      // Registrar a operação no histórico com anexos
-      addOperacao({
-        tipo: "saida",
-        usuario: responsavelSaida,
-        caixaId: caixaSelecionadaId,
-        equipamento: caixa.equipamento,
-        modelo: caixa.modelo,
-        quantidade: caixa.quantidade,
-        destino,
-        observacao: motivo,
-        anexos: anexosSaida.length > 0 ? anexosSaida : undefined
-      });
+      
+      // Processar cada caixa selecionada
+      console.log('Iniciando processamento de', caixasParaProcessar.length, 'caixas');
+      console.log('Caixas disponíveis antes:', caixasDisponiveis.length);
+      
+      for (const caixaId of caixasParaProcessar) {
+        const caixa = caixasDisponiveis.find(c => c.id === caixaId);
+        if (!caixa) {
+          console.log('Caixa não encontrada:', caixaId);
+          continue;
+        }
 
-      // Remove a caixa do inventário (Supabase)
-      await removeCaixa(caixaSelecionadaId);
+        console.log('Processando caixa:', caixa.numero_caixa, 'ID:', caixaId);
+
+        // Registrar a operação no histórico local
+        addOperacao({
+          tipo: "saida",
+          usuario: responsavelSaida,
+          caixaId: caixaId,
+          equipamento: caixa.equipamento,
+          modelo: caixa.modelo,
+          quantidade: caixa.quantidade,
+          destino,
+          observacao: motivo,
+          anexos: anexosSaida.length > 0 ? anexosSaida : undefined
+        });
+
+        // Registrar a operação no Supabase para relatórios
+        await addOperacaoSupabase({
+          tipo: "saida",
+          usuario: responsavelSaida,
+          caixaId: caixaId,
+          equipamento: caixa.equipamento,
+          modelo: caixa.modelo,
+          quantidade: caixa.quantidade,
+          destino,
+          observacao: motivo
+        });
+
+        // Remove a caixa do inventário (Supabase)
+        console.log('Removendo do Supabase...');
+        await removeCaixa(caixaId);
+        console.log('Removido do Supabase com sucesso');
+        
+        // Remove a caixa do inventário local (Context)
+        console.log('Removendo do contexto local...');
+        removeInventarioCaixa(caixaId);
+        console.log('Removido do contexto local com sucesso');
+        
+        // Diminui o estoque disponível
+        console.log('Diminuindo estoque...');
+        const estoqueReduzido = diminuirEstoque(caixa.modelo, caixa.quantidade);
+        console.log('Estoque reduzido:', estoqueReduzido);
+        
+        console.log('Caixa processada com sucesso:', caixa.numero_caixa);
+      }
+      
+      console.log('Processamento concluído');
+      console.log('Caixas disponíveis após processamento:', caixasDisponiveis.length);
 
       toast({
         title: "Saída registrada",
-        description: `Saída da caixa ${caixa.numero_caixa} registrada com sucesso`,
+        description: `Saída de ${caixasParaProcessar.length} caixa${caixasParaProcessar.length > 1 ? 's' : ''} registrada com sucesso`,
       });
 
       // Limpar formulário
@@ -170,8 +223,8 @@ export default function Saida() {
       return mac;
     };
 
-    // Pega a lista de MACs do campo de texto
-    const macsLista = macsParaVerificar.split('\n').map(mac => mac.trim()).filter(mac => mac);
+    // Pega a lista de MACs do campo de texto (aceita vírgulas e quebras de linha)
+    const macsLista = macsParaVerificar.split(/[\n,]/).map(mac => mac.trim()).filter(mac => mac);
     console.log("MACs da lista:", macsLista);
     console.log("Quantidade de MACs:", macsLista.length);
     
@@ -216,6 +269,7 @@ export default function Saida() {
         let localEstoque = '';
         
         // Buscar o MAC nos dados e extrair o contexto do equipamento
+        let statusEquipamento = '';
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i].toLowerCase();
           
@@ -238,31 +292,42 @@ export default function Saida() {
               
               // Extrair LOCAL ESTOQUE
               if (checkLine.includes('LOCAL ESTOQUE:')) {
-                const localMatch = checkLine.match(/LOCAL ESTOQUE:\s*([^-\n\t]+?)(?:\s+-\s+|\s+NÚMERO|\s+EPI)/);
+                const localMatch = checkLine.match(/LOCAL ESTOQUE:\s*(.+?)(?:\s+NÚMERO|\s+EPI|\t|$)/);
                 if (localMatch) {
                   localEstoque = localMatch[1].trim();
                   console.log(`Local extraído: ${localEstoque}`);
                 }
+              }
+              
+              // Verificar status do equipamento (Estoque ou Comodato)
+              if (checkLine.trim() === 'Estoque' || checkLine.trim() === 'Comodato') {
+                statusEquipamento = checkLine.trim();
+                console.log(`Status encontrado: ${statusEquipamento}`);
               }
             }
             break;
           }
         }
         
-        // Define a chave do grupo baseado apenas na localização
-        let chaveGrupo = '';
-        if (localEstoque) {
-          chaveGrupo = localEstoque;
+        // Só adicionar à lista organizada por localização se o status for "Estoque"
+        if (statusEquipamento === 'Estoque') {
+          // Define a chave do grupo baseado apenas na localização
+          let chaveGrupo = '';
+          if (localEstoque) {
+            chaveGrupo = localEstoque;
+          } else {
+            chaveGrupo = 'Local não identificado';
+          }
+          
+          console.log(`Grupo definido para equipamento em estoque: ${chaveGrupo}`);
+          
+          if (!grupos[chaveGrupo]) {
+            grupos[chaveGrupo] = [];
+          }
+          grupos[chaveGrupo].push(macOriginal);
         } else {
-          chaveGrupo = 'Local não identificado';
+          console.log(`Equipamento com status "${statusEquipamento}" não incluído na lista por localização`);
         }
-        
-        console.log(`Grupo definido: ${chaveGrupo}`);
-        
-        if (!grupos[chaveGrupo]) {
-          grupos[chaveGrupo] = [];
-        }
-        grupos[chaveGrupo].push(macOriginal);
         
       } else {
         // MAC não foi encontrado nos dados dos equipamentos
@@ -944,7 +1009,7 @@ export default function Saida() {
                     onChange={(e) => setMacsParaVerificar(e.target.value)}
                     placeholder={tipoSelecaoMac === "caixa" 
                       ? "Selecione uma caixa acima para carregar os MACs automaticamente..."
-                      : "Cole aqui os MACs..."
+                      : "Cole aqui os MACs (separados por vírgula ou quebra de linha)..."
                     }
                     rows={6}
                     className="font-mono text-sm"
@@ -963,7 +1028,7 @@ export default function Saida() {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          const macsList = macsParaVerificar.split('\n').filter(mac => mac.trim()).join(',');
+                          const macsList = macsParaVerificar.split(/[\n,]/).filter(mac => mac.trim()).join(',');
                           navigator.clipboard.writeText(macsList);
                           toast({
                             title: "Lista copiada",
@@ -975,10 +1040,10 @@ export default function Saida() {
                       </Button>
                     </div>
                     <div className="text-sm text-muted-foreground mb-2">
-                      {macsParaVerificar.split('\n').filter(mac => mac.trim()).length} MAC(s)
+                      {macsParaVerificar.split(/[\n,]/).filter(mac => mac.trim()).length} MAC(s)
                     </div>
                     <div className="text-xs font-mono text-foreground bg-background/50 p-2 rounded border max-h-20 overflow-y-auto">
-                      {macsParaVerificar.split('\n').filter(mac => mac.trim()).join(',,')}
+                      {macsParaVerificar.split(/[\n,]/).filter(mac => mac.trim()).join(',')}
                     </div>
                   </div>
                 )}
@@ -1002,14 +1067,73 @@ export default function Saida() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="dadosEquipamentos">Dados dos Equipamentos:</Label>
-                  <Textarea
-                    id="dadosEquipamentos"
-                    value={dadosEquipamentos}
-                    onChange={(e) => setDadosEquipamentos(e.target.value)}
-                    placeholder="Cole aqui os dados dos equipamentos..."
-                    rows={8}
-                    className="font-mono text-sm"
-                  />
+                  <div className="relative">
+                    <Textarea
+                      id="dadosEquipamentos"
+                      value={dadosEquipamentos}
+                      onChange={(e) => setDadosEquipamentos(e.target.value)}
+                      placeholder="Cole aqui os dados dos equipamentos..."
+                      rows={8}
+                      className="font-mono text-sm"
+                    />
+                    {dadosEquipamentos && (
+                      <div className="mt-4 space-y-4">
+                        {/* Contador de Status */}
+                        <div className="p-4 border border-border dark:border-gray-700 rounded-xl bg-gradient-to-r from-muted/30 to-muted/10 dark:from-gray-800/50 dark:to-gray-900/30 shadow-sm">
+                          <div className="text-sm font-semibold mb-3 text-foreground flex items-center gap-2">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                            Resumo dos Status:
+                          </div>
+                          <div className="flex gap-6 text-sm">
+                            <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 px-3 py-2 rounded-lg border border-green-200 dark:border-green-800/50">
+                              <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-sm"></div>
+                              <span className="font-medium text-green-800 dark:text-green-200">Estoque ({dadosEquipamentos.split('\n').filter(line => line.trim() === 'Estoque').length})</span>
+                            </div>
+                            <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800/50">
+                              <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-sm"></div>
+                              <span className="font-medium text-blue-800 dark:text-blue-200">Comodato ({dadosEquipamentos.split('\n').filter(line => line.trim() === 'Comodato').length})</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Visualização com Status Destacados */}
+                        <div className="border border-border dark:border-gray-700 rounded-xl p-4 bg-gradient-to-br from-background to-muted/30 dark:from-gray-900 dark:to-gray-800 max-h-60 overflow-y-auto shadow-sm">
+                          <div className="text-sm font-semibold mb-3 text-foreground flex items-center gap-2">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                            Dados com Status Destacados:
+                          </div>
+                          <div className="font-mono text-xs space-y-2">
+                            {dadosEquipamentos.split('\n').map((line, index) => {
+                              const trimmedLine = line.trim();
+                              if (trimmedLine === 'Estoque') {
+                                return (
+                                  <div key={index} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800/50 transition-all hover:shadow-md">
+                                    <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-sm"></div>
+                                    <span className="font-bold text-green-800 dark:text-green-200 bg-green-100 dark:bg-green-900/50 px-3 py-1.5 rounded-full text-xs tracking-wide">{line}</span>
+                                  </div>
+                                );
+                              } else if (trimmedLine === 'Comodato') {
+                                return (
+                                  <div key={index} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 transition-all hover:shadow-md">
+                                    <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-sm"></div>
+                                    <span className="font-bold text-blue-800 dark:text-blue-200 bg-blue-100 dark:bg-blue-900/50 px-3 py-1.5 rounded-full text-xs tracking-wide">{line}</span>
+                                  </div>
+                                );
+                              } else if (trimmedLine) {
+                                return (
+                                  <div key={index} className="text-muted-foreground ml-6 py-1 px-2 rounded bg-muted/20 dark:bg-gray-800/30">{line}</div>
+                                );
+                              } else {
+                                return <div key={index} className="h-2"></div>;
+                              }
+                            })}
+                          </div>
+                        </div>
+                        
+
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1032,23 +1156,274 @@ export default function Saida() {
                   Verificar MACs
                 </Button>
 
+                {/* Equipamentos em Comodato - só aparece após verificar MACs */}
+                {dadosEquipamentos && (Object.keys(resultadoProcessamento.grupos).length > 0 || resultadoProcessamento.naoEncontrados.length > 0) && (
+                  <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-950/70 dark:to-green-900/50 border border-green-200 dark:border-green-800/50 rounded-xl shadow-md hover:shadow-lg transition-all duration-300">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-bold text-lg text-green-800 dark:text-green-200 flex items-center gap-2">
+                        <div className="w-2 h-2 bg-gradient-to-r from-green-400 to-green-600 rounded-full"></div>
+                        📦 Equipamentos em Comodato
+                      </h4>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-green-600 dark:text-green-400 border-green-300 dark:border-green-600 hover:bg-green-100 dark:hover:bg-green-900 hover:scale-105 transition-all duration-200 shadow-sm"
+                        onClick={() => {
+                          const lines = dadosEquipamentos.split('\n');
+                          const comodatoMacs = [];
+                          
+                          for (let i = 0; i < lines.length; i++) {
+                            if (lines[i].trim() === 'Comodato') {
+                              // Buscar MAC nas próximas linhas
+                              for (let j = i + 1; j < Math.min(lines.length, i + 10); j++) {
+                                const infoLine = lines[j];
+                                if (infoLine.includes('MAC:')) {
+                                  const macMatch = infoLine.match(/MAC:\s*([A-Fa-f0-9:]+)/);
+                                  if (macMatch) {
+                                    comodatoMacs.push(macMatch[1]);
+                                  }
+                                }
+                                // Para quando encontrar próximo equipamento ou status
+                                if (infoLine.match(/^\(\d+\)/) || infoLine.trim() === 'Estoque' || infoLine.trim() === 'Comodato') {
+                                  break;
+                                }
+                              }
+                            }
+                          }
+                          
+                          const macsList = comodatoMacs.join(',');
+                          navigator.clipboard.writeText(macsList);
+                          toast({
+                            title: "Lista copiada",
+                            description: `Lista de Comodato copiada para a área de transferência`,
+                          });
+                        }}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {(() => {
+                        const lines = dadosEquipamentos.split('\n');
+                        const comodatoEquipamentos = [];
+                        
+                        // Verificar se há equipamentos em comodato
+                        const hasComodato = lines.some(line => line.trim() === 'Comodato');
+                        
+                        if (!hasComodato) {
+                          return (
+                            <div className="text-center py-8 text-green-600 dark:text-green-400">
+                              <div className="text-lg font-medium mb-2">📦 Nenhum equipamento em comodato encontrado</div>
+                              <div className="text-sm opacity-75">Cole os dados dos equipamentos para visualizar os equipamentos em comodato</div>
+                            </div>
+                          );
+                        }
+                        
+                        for (let i = 0; i < lines.length; i++) {
+                          if (lines[i].trim() === 'Comodato' || lines[i].includes('Comodato')) {
+                             // Buscar informações do equipamento nas linhas anteriores e posteriores
+                             let equipamentoInfo = '';
+                             
+                             // Buscar linha do equipamento (anterior com número)
+                             for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+                               if (lines[k].match(/^\(\d+\)/)) {
+                                 equipamentoInfo = lines[k];
+                                 break;
+                               }
+                             }
+                             
+                             // Buscar informações adicionais em um contexto mais amplo
+                              let mac = '';
+                              let local = '';
+                              let numeroSerie = '';
+                              let outrasInfos = [];
+                              
+                              // Buscar informações tanto nas linhas anteriores quanto posteriores
+                              const searchStart = Math.max(0, i - 5);
+                              const searchEnd = Math.min(lines.length, i + 25);
+                              
+                              for (let j = searchStart; j < searchEnd; j++) {
+                                const infoLine = lines[j].trim();
+                                
+                                // Pular a linha atual do Comodato
+                                if (j === i) continue;
+                                
+                                // Para quando encontrar outro equipamento
+                                if (j > i && infoLine.match(/^\(\d+\)/) && j !== i + 1) {
+                                  break;
+                                }
+                                
+                                // Buscar MAC com diferentes padrões
+                                if (infoLine.includes('MAC:')) {
+                                  const macMatch = infoLine.match(/MAC:\s*([A-Fa-f0-9:.-]+)/);
+                                  if (macMatch) {
+                                    mac = macMatch[1];
+                                  }
+                                } else if (!mac && infoLine.match(/^[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}$/)) {
+                                  // MAC sem prefixo no formato XX:XX:XX:XX:XX:XX
+                                  mac = infoLine;
+                                }
+                                
+                                // Buscar LOCAL ESTOQUE
+                                if (infoLine.includes('LOCAL ESTOQUE:')) {
+                                  const localMatch = infoLine.match(/LOCAL ESTOQUE:\s*(.+?)(?:\s+NÚMERO|\s+MAC|\t|$)/);
+                                  if (localMatch) {
+                                    local = localMatch[1].trim();
+                                  }
+                                }
+                                
+                                // Buscar NÚMERO DE SÉRIE
+                                if (infoLine.includes('NÚMERO DE SÉRIE:')) {
+                                  const serieMatch = infoLine.match(/NÚMERO DE SÉRIE:\s*(.+?)(?:\s+MAC|\s+LOCAL|\t|$)/);
+                                  if (serieMatch) {
+                                    numeroSerie = serieMatch[1].trim();
+                                  }
+                                }
+                               
+                               // Capturar outras informações que não sejam vazias e não sejam status
+                               if (infoLine && 
+                                   !infoLine.includes('MAC:') && 
+                                   !infoLine.includes('LOCAL ESTOQUE:') && 
+                                   !infoLine.includes('NÚMERO DE SÉRIE:') &&
+                                   !infoLine.match(/^\(\d+\)/) && 
+                                   infoLine.trim() !== 'Estoque' && 
+                                   infoLine.trim() !== 'Comodato' &&
+                                   infoLine.length > 0) {
+                                 outrasInfos.push(infoLine);
+                               }
+                             }
+                             
+                             // Sempre adicionar o equipamento, mesmo que algumas informações estejam faltando
+                             comodatoEquipamentos.push({ 
+                               equipamento: equipamentoInfo || 'Equipamento em Comodato', 
+                               mac: mac || 'N/A', 
+                               local: local || 'N/A', 
+                               numeroSerie: numeroSerie || 'N/A',
+                               outrasInfos 
+                             });
+                          }
+                        }
+                        
+                        if (comodatoEquipamentos.length === 0) {
+                          return (
+                            <div className="text-center py-8 text-yellow-600 dark:text-yellow-400">
+                              <div className="text-lg font-medium mb-2">⚠️ Equipamentos em comodato detectados mas não processados</div>
+                              <div className="text-sm opacity-75">Verifique o formato dos dados dos equipamentos</div>
+                            </div>
+                          );
+                        }
+                        
+                        return comodatoEquipamentos.map((item, index) => {
+                           // Extrair informações detalhadas do equipamento
+                           const equipamentoMatch = item.equipamento ? item.equipamento.match(/\((\d+)\)\s*(.+)/) : null;
+                           const numeroEquipamento = equipamentoMatch ? equipamentoMatch[1] : '';
+                           const modeloEquipamento = equipamentoMatch ? equipamentoMatch[2] : item.equipamento || 'Equipamento';
+                           
+                           return (
+                              <div key={index} className="p-3 bg-gradient-to-r from-green-100/70 to-green-50/50 dark:from-green-900/70 dark:to-green-950/50 border border-green-200/50 dark:border-green-800/30 rounded-lg font-mono text-sm">
+                                <div className="text-green-800 dark:text-green-200 font-semibold mb-1 bg-gradient-to-r from-yellow-200 to-yellow-300 dark:from-yellow-600 dark:to-yellow-700 px-2 py-1 rounded-md border border-yellow-400 dark:border-yellow-500 shadow-sm">
+                                  🏷️ Comodato
+                                </div>
+                                {numeroEquipamento && (
+                                  <div className="text-green-700 dark:text-green-300 mb-1">
+                                    ({numeroEquipamento}) {modeloEquipamento}
+                                  </div>
+                                )}
+                                {item.local && item.local !== 'N/A' && (
+                                  <div className="text-green-600 dark:text-green-400 mb-1">
+                                    LOCAL ESTOQUE: {item.local}
+                                  </div>
+                                )}
+                                {item.numeroSerie && item.numeroSerie !== 'N/A' && (
+                                  <div className="text-green-600 dark:text-green-400 mb-1">
+                                    NÚMERO DE SÉRIE: {item.numeroSerie}
+                                  </div>
+                                )}
+                                {item.outrasInfos && item.outrasInfos.length > 0 && (
+                                  item.outrasInfos.filter(info => 
+                                    !info.includes('VALOR VENDA:') && 
+                                    !info.includes('RECONDICIONADO:') && 
+                                    !info.includes('TIPO:') && 
+                                    !info.includes('OBSERVAÇÕES:')
+                                  ).map((info, infoIndex) => (
+                                    <div key={infoIndex} className="text-green-600 dark:text-green-400 mb-1">
+                                      {info}
+                                    </div>
+                                  ))
+                                )}
+                                {item.mac && item.mac !== 'N/A' && (
+                                  <div className="text-green-700 dark:text-green-300 flex items-center justify-between">
+                                    <span>MAC: {item.mac}</span>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      className="text-green-600 dark:text-green-400 border-green-300 dark:border-green-600 hover:bg-green-100 dark:hover:bg-green-900 hover:scale-105 transition-all duration-200 shadow-sm h-6 px-2"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(item.mac);
+                                        toast({
+                                          title: "Lista copiada",
+                                          description: `MAC ${item.mac} copiado para a área de transferência`,
+                                        });
+                                      }}
+                                    >
+                                      Copiar
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                         });
+                      })()}
+                      <div className="text-sm font-semibold text-green-600 dark:text-green-400 bg-green-100/30 dark:bg-green-900/30 px-3 py-1.5 rounded-full inline-block">
+                        {(() => {
+                          const lines = dadosEquipamentos.split('\n');
+                          let count = 0;
+                          
+                          for (let i = 0; i < lines.length; i++) {
+                            if (lines[i].trim() === 'Comodato') {
+                              // Buscar MAC nas próximas linhas
+                              for (let j = i + 1; j < Math.min(lines.length, i + 10); j++) {
+                                const infoLine = lines[j];
+                                if (infoLine.includes('MAC:')) {
+                                  count++;
+                                }
+                                // Para quando encontrar próximo equipamento ou status
+                                if (infoLine.match(/^\(\d+\)/) || infoLine.trim() === 'Estoque' || infoLine.trim() === 'Comodato') {
+                                  break;
+                                }
+                              }
+                            }
+                          }
+                          
+                          return `${count} MAC(s)`;
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Resultado do Processamento */}
                 {(Object.keys(resultadoProcessamento.grupos).length > 0 || resultadoProcessamento.naoEncontrados.length > 0) && (
                   <div className="space-y-4">
-                    <div className="p-4 bg-muted/30 border rounded-lg">
-                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <div className="p-6 border border-border dark:border-gray-700 rounded-xl bg-gradient-to-br from-background to-muted/30 dark:from-gray-900 dark:to-gray-800 shadow-lg">
+                      <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-foreground">
+                        <div className="w-3 h-3 bg-gradient-to-r from-primary to-primary/70 rounded-full animate-pulse shadow-sm"></div>
                         📋 Lista Organizada por Localização:
                       </h3>
                       
                       {/* Grupos por localização */}
                       {Object.entries(resultadoProcessamento.grupos).map(([local, macs]) => (
-                        <div key={local} className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-blue-800">{local}</h4>
+                        <div key={local} className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/70 dark:to-blue-900/50 border border-blue-200 dark:border-blue-800/50 rounded-xl shadow-md hover:shadow-lg transition-all duration-300">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-bold text-lg text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                              <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"></div>
+                              {local}
+                            </h4>
                             <Button 
                               variant="outline" 
                               size="sm"
-                              className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                              className="text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 hover:scale-105 transition-all duration-200 shadow-sm"
                               onClick={() => {
                                 const macsList = macs.join(',');
                                 navigator.clipboard.writeText(macsList);
@@ -1062,28 +1437,228 @@ export default function Saida() {
                             </Button>
                           </div>
                           
-                          <div className="space-y-2">
-                            <div className="text-xs font-mono text-blue-700 bg-blue-100/50 p-2 rounded break-all">
+                          <div className="space-y-3">
+                            <div className="text-xs font-mono text-blue-700 dark:text-blue-300 bg-gradient-to-r from-blue-100/70 to-blue-50/50 dark:from-blue-900/70 dark:to-blue-950/50 p-3 rounded-lg break-all border border-blue-200/50 dark:border-blue-800/30">
                               {macs.join(',')}
                             </div>
-                            <div className="text-sm text-blue-600">
+                            <div className="text-sm font-semibold text-blue-600 dark:text-blue-400 bg-blue-100/30 dark:bg-blue-900/30 px-3 py-1.5 rounded-full inline-block">
                               {macs.length} MAC(s)
                             </div>
                           </div>
                         </div>
                       ))}
 
+                      {/* Equipamentos em Comodato - movido para cima dos não encontrados */}
+                      {dadosEquipamentos && (() => {
+                        const lines = dadosEquipamentos.split('\n');
+                        const comodatoEquipamentos = [];
+                        
+                        // Verificar se há equipamentos em comodato
+                        const hasComodato = lines.some(line => line.trim() === 'Comodato' || line.includes('Comodato'));
+                        
+                        if (!hasComodato) {
+                          return null;
+                        }
+                        
+                        for (let i = 0; i < lines.length; i++) {
+                          if (lines[i].trim() === 'Comodato' || lines[i].includes('Comodato')) {
+                             // Buscar informações do equipamento nas linhas anteriores e posteriores
+                             let equipamentoInfo = '';
+                             
+                             // Buscar linha do equipamento (anterior com número)
+                             for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+                               if (lines[k].match(/^\(\d+\)/)) {
+                                 equipamentoInfo = lines[k];
+                                 break;
+                               }
+                             }
+                             
+                             // Buscar informações adicionais em um contexto mais amplo
+                              let mac = '';
+                              let local = '';
+                              let numeroSerie = '';
+                              let outrasInfos = [];
+                              
+                              // Buscar informações tanto nas linhas anteriores quanto posteriores
+                              const searchStart = Math.max(0, i - 5);
+                              const searchEnd = Math.min(lines.length, i + 25);
+                              
+                              for (let j = searchStart; j < searchEnd; j++) {
+                                const infoLine = lines[j].trim();
+                                
+                                // Pular a linha atual do Comodato
+                                if (j === i) continue;
+                                
+                                // Para quando encontrar outro equipamento
+                                if (j > i && infoLine.match(/^\(\d+\)/) && j !== i + 1) {
+                                  break;
+                                }
+                                
+                                // Buscar MAC com diferentes padrões
+                                if (infoLine.includes('MAC:')) {
+                                  const macMatch = infoLine.match(/MAC:\s*([A-Fa-f0-9:.-]+)/);
+                                  if (macMatch) {
+                                    mac = macMatch[1];
+                                  }
+                                } else if (!mac && infoLine.match(/^[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}$/)) {
+                                  // MAC sem prefixo no formato XX:XX:XX:XX:XX:XX
+                                  mac = infoLine;
+                                }
+                                
+                                // Buscar LOCAL ESTOQUE
+                                if (infoLine.includes('LOCAL ESTOQUE:')) {
+                                  const localMatch = infoLine.match(/LOCAL ESTOQUE:\s*(.+?)(?:\s+NÚMERO|\s+MAC|\t|$)/);
+                                  if (localMatch) {
+                                    local = localMatch[1].trim();
+                                  }
+                                }
+                                
+                                // Buscar NÚMERO DE SÉRIE
+                                if (infoLine.includes('NÚMERO DE SÉRIE:')) {
+                                  const serieMatch = infoLine.match(/NÚMERO DE SÉRIE:\s*(.+?)(?:\s+MAC|\s+LOCAL|\t|$)/);
+                                  if (serieMatch) {
+                                    numeroSerie = serieMatch[1].trim();
+                                  }
+                                }
+                               
+                               // Capturar outras informações que não sejam vazias e não sejam status
+                               if (infoLine && 
+                                   !infoLine.includes('MAC:') && 
+                                   !infoLine.includes('LOCAL ESTOQUE:') && 
+                                   !infoLine.includes('NÚMERO DE SÉRIE:') &&
+                                   !infoLine.match(/^\(\d+\)/) && 
+                                   infoLine.trim() !== 'Estoque' && 
+                                   infoLine.trim() !== 'Comodato' &&
+                                   infoLine.length > 0) {
+                                 outrasInfos.push(infoLine);
+                               }
+                             }
+                             
+                             // Sempre adicionar o equipamento, mesmo que algumas informações estejam faltando
+                             comodatoEquipamentos.push({ 
+                               equipamento: equipamentoInfo || 'Equipamento em Comodato', 
+                               mac: mac || 'N/A', 
+                               local: local || 'N/A', 
+                               numeroSerie: numeroSerie || 'N/A',
+                               outrasInfos 
+                             });
+                          }
+                        }
+                        
+                        if (comodatoEquipamentos.length === 0) {
+                          return null;
+                        }
+                        
+                        return (
+                          <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-950/70 dark:to-green-900/50 border border-green-200 dark:border-green-800/50 rounded-xl shadow-md hover:shadow-lg transition-all duration-300">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-bold text-lg text-green-800 dark:text-green-200 flex items-center gap-2">
+                                <div className="w-2 h-2 bg-gradient-to-r from-green-400 to-green-600 rounded-full"></div>
+                                📦 Equipamentos em Comodato
+                              </h4>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="text-green-600 dark:text-green-400 border-green-300 dark:border-green-600 hover:bg-green-100 dark:hover:bg-green-900 hover:scale-105 transition-all duration-200 shadow-sm"
+                                onClick={() => {
+                                  const comodatoMacs = comodatoEquipamentos
+                                    .filter(item => item.mac && item.mac !== 'N/A')
+                                    .map(item => item.mac.replace(/:/g, ''))
+                                    .join(',');
+                                  
+                                  navigator.clipboard.writeText(comodatoMacs);
+                                  toast({
+                                    title: "Lista copiada",
+                                    description: `MACs de Comodato copiados para a área de transferência`,
+                                  });
+                                }}
+                              >
+                                Copiar
+                              </Button>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              {comodatoEquipamentos.map((item, index) => {
+                                 // Extrair informações detalhadas do equipamento
+                                 const equipamentoMatch = item.equipamento ? item.equipamento.match(/\((\d+)\)\s*(.+)/) : null;
+                                 const numeroEquipamento = equipamentoMatch ? equipamentoMatch[1] : '';
+                                 const modeloEquipamento = equipamentoMatch ? equipamentoMatch[2] : item.equipamento || 'Equipamento';
+                                 
+                                 return (
+                                    <div key={index} className="p-3 bg-gradient-to-r from-green-100/70 to-green-50/50 dark:from-green-900/70 dark:to-green-950/50 border border-green-200/50 dark:border-green-800/30 rounded-lg font-mono text-sm">
+                                      <div className="text-green-800 dark:text-green-200 font-semibold mb-1 bg-gradient-to-r from-yellow-200 to-yellow-300 dark:from-yellow-600 dark:to-yellow-700 px-2 py-1 rounded-md border border-yellow-400 dark:border-yellow-500 shadow-sm">
+                                        🏷️ Comodato
+                                      </div>
+                                      {numeroEquipamento && (
+                                        <div className="text-green-700 dark:text-green-300 mb-1">
+                                          ({numeroEquipamento}) {modeloEquipamento}
+                                        </div>
+                                      )}
+                                      {item.local && item.local !== 'N/A' && (
+                                        <div className="text-green-600 dark:text-green-400 mb-1">
+                                          LOCAL ESTOQUE: {item.local}
+                                        </div>
+                                      )}
+                                      {item.numeroSerie && item.numeroSerie !== 'N/A' && (
+                                        <div className="text-green-600 dark:text-green-400 mb-1">
+                                          NÚMERO DE SÉRIE: {item.numeroSerie}
+                                        </div>
+                                      )}
+                                      {item.outrasInfos && item.outrasInfos.length > 0 && (
+                                        item.outrasInfos.filter(info => 
+                                          !info.includes('VALOR VENDA:') && 
+                                          !info.includes('RECONDICIONADO:') && 
+                                          !info.includes('TIPO:') && 
+                                          !info.includes('OBSERVAÇÕES:')
+                                        ).map((info, infoIndex) => (
+                                          <div key={infoIndex} className="text-green-600 dark:text-green-400 mb-1">
+                                            {info}
+                                          </div>
+                                        ))
+                                      )}
+                                      {item.mac && item.mac !== 'N/A' && (
+                                        <div className="text-green-700 dark:text-green-300 flex items-center justify-between">
+                                          <span>MAC: {item.mac}</span>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm"
+                                            className="text-green-600 dark:text-green-400 border-green-300 dark:border-green-600 hover:bg-green-100 dark:hover:bg-green-900 hover:scale-105 transition-all duration-200 shadow-sm h-6 px-2"
+                                            onClick={() => {
+                                              const macSemDoisPontos = item.mac.replace(/:/g, '');
+                                              navigator.clipboard.writeText(macSemDoisPontos);
+                                              toast({
+                                                title: "Lista copiada",
+                                                description: `MAC ${macSemDoisPontos} copiado para a área de transferência`,
+                                              });
+                                            }}
+                                          >
+                                            Copiar
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                               })}
+                               <div className="text-sm font-semibold text-green-600 dark:text-green-400 bg-green-100/30 dark:bg-green-900/30 px-3 py-1.5 rounded-full inline-block">
+                                 {comodatoEquipamentos.filter(item => item.mac && item.mac !== 'N/A').length} MAC(s)
+                               </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Equipamentos não encontrados */}
                       {resultadoProcessamento.naoEncontrados.length > 0 && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-red-800 flex items-center gap-2">
+                        <div className="p-4 bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-950/70 dark:to-red-900/50 border border-red-200 dark:border-red-800/50 rounded-xl shadow-md">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-bold text-lg text-red-800 dark:text-red-200 flex items-center gap-2">
+                              <div className="w-2 h-2 bg-gradient-to-r from-red-400 to-red-600 rounded-full"></div>
                               ❌ Equipamentos Não Encontrados
                             </h4>
                             <Button 
                               variant="outline" 
                               size="sm"
-                              className="text-red-600 border-red-300 hover:bg-red-100"
+                              className="text-red-600 dark:text-red-400 border-red-300 dark:border-red-600 hover:bg-red-100 dark:hover:bg-red-900 hover:scale-105 transition-all duration-200 shadow-sm"
                               onClick={() => {
                                 const macsList = resultadoProcessamento.naoEncontrados.join(',');
                                 navigator.clipboard.writeText(macsList);
@@ -1093,17 +1668,17 @@ export default function Saida() {
                                 });
                               }}
                             >
-                              Copiar MACs Não Encontrados
+                              Copiar
                             </Button>
                           </div>
-                          <div className="text-xs font-mono text-red-700 bg-red-100/50 p-2 rounded mb-2">
+                          <div className="text-xs font-mono text-red-700 dark:text-red-300 bg-gradient-to-r from-red-100/70 to-red-50/50 dark:from-red-900/70 dark:to-red-950/50 p-3 rounded-lg mb-3 border border-red-200/50 dark:border-red-800/30">
                             {resultadoProcessamento.naoEncontrados.map((mac, index) => (
                               <span key={mac}>
                                 {mac}{index < resultadoProcessamento.naoEncontrados.length - 1 ? ', ' : ''}
                               </span>
                             ))}
                           </div>
-                          <div className="text-sm text-red-600">
+                          <div className="text-sm text-red-600 dark:text-red-400">
                             {resultadoProcessamento.naoEncontrados.length} MAC(S)
                           </div>
                         </div>

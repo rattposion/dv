@@ -115,20 +115,43 @@ export const useSupabaseCaixasInventario = () => {
   };
 
   const removeCaixa = async (id: string) => {
+    console.log('useSupabaseCaixasInventario: removeCaixa chamado para ID:', id);
+    console.log('useSupabaseCaixasInventario: caixas antes da remoção:', caixas.length);
+    
     try {
+      // Primeiro, verificar se o usuário tem permissão
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
       const { error } = await supabase
         .from('caixas_inventario')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('useSupabaseCaixasInventario: Erro no Supabase:', error);
+        if (error.code === 'PGRST301') {
+          throw new Error('Sem permissão para deletar esta caixa. Contate o administrador.');
+        }
+        throw error;
+      }
 
-      setCaixas(prev => prev.filter(c => c.id !== id));
+      console.log('useSupabaseCaixasInventario: Remoção do Supabase bem-sucedida');
+      
+      setCaixas(prev => {
+        const novasCaixas = prev.filter(c => c.id !== id);
+        console.log('useSupabaseCaixasInventario: caixas após remoção local:', novasCaixas.length);
+        return novasCaixas;
+      });
       
       toast({
         title: "Caixa removida",
         description: "Caixa removida com sucesso",
       });
+      
+      console.log('useSupabaseCaixasInventario: removeCaixa concluído com sucesso');
     } catch (error: any) {
       console.error('Erro ao remover caixa:', error);
       toast({
@@ -142,6 +165,24 @@ export const useSupabaseCaixasInventario = () => {
 
   useEffect(() => {
     fetchCaixas();
+
+    // Configurar escuta em tempo real para atualizações automáticas
+    const channel = supabase
+      .channel('caixas-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'caixas_inventario'
+      }, (payload) => {
+        console.log('Mudança detectada na tabela caixas_inventario:', payload);
+        // Não recarregar automaticamente para evitar conflitos
+        // fetchCaixas();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return {

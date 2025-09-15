@@ -21,6 +21,7 @@ import { useSupabaseProducao } from "@/hooks/useSupabaseProducao";
 import { useSupabaseGarantias } from "@/hooks/useSupabaseGarantias";
 import { useSupabaseCaixasInventario } from "@/hooks/useSupabaseCaixasInventario";
 import { useSupabaseRecuperacoes } from "@/hooks/useSupabaseRecuperacoes";
+import { useSupabaseMovimentacoes } from "@/hooks/useSupabaseMovimentacoes";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAutoRelatorios } from "@/hooks/useAutoRelatorios";
@@ -50,6 +51,7 @@ export default function Relatorios() {
   const { garantias, loading: loadingGarantias } = useSupabaseGarantias();
   const { caixas: caixasInventario, loading: loadingInventario } = useSupabaseCaixasInventario();
   const { recuperacoes, totalRecuperados } = useSupabaseRecuperacoes();
+  const { movimentacoes } = useSupabaseMovimentacoes();
   
   // Inicializar sistema de relatórios automáticos
   useAutoRelatorios();
@@ -1172,16 +1174,54 @@ export default function Relatorios() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ArrowDown className="h-5 w-5" />
-                  Relatórios Salvos - Saídas
+                  Operações de Saída
                 </CardTitle>
+                <CardDescription>
+                  Histórico de todas as saídas registradas no sistema
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {relatorios.filter(r => r.tipo === 'movimentacoes').filter(r => r.dados?.operacoes?.some((op: any) => op.tipo === 'saida')).length === 0 ? (
+                {movimentacoes.filter(m => m.tipo === 'saida').length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground">Nenhum relatório de saídas salvo</p>
+                    <p className="text-muted-foreground">Nenhuma saída registrada</p>
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">Implementar listagem específica de relatórios de saídas</p>
+                  <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2 mb-4">
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="text-2xl font-bold text-primary">{movimentacoes.filter(m => m.tipo === 'saida').length}</div>
+                          <p className="text-sm text-muted-foreground">Total de Saídas</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="text-2xl font-bold text-secondary">{movimentacoes.filter(m => m.tipo === 'saida').reduce((total, m) => total + m.quantidade, 0)}</div>
+                          <p className="text-sm text-muted-foreground">Equipamentos Enviados</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {movimentacoes.filter(m => m.tipo === 'saida').map((saida) => (
+                        <div key={saida.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">{saida.equipamento}</h4>
+                            <Badge variant="outline">
+                              {saida.quantidade} unidades
+                            </Badge>
+                          </div>
+                          <div className="text-sm space-y-1">
+                            <p><strong>Modelo:</strong> {saida.modelo}</p>
+                            <p><strong>Responsável:</strong> {saida.usuario}</p>
+                            <p><strong>Destino:</strong> {saida.destino}</p>
+                            <p><strong>Data:</strong> {new Date(saida.created_at).toLocaleDateString('pt-BR')} às {new Date(saida.created_at).toLocaleTimeString('pt-BR')}</p>
+                            {saida.observacao && <p><strong>Observação:</strong> {saida.observacao}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>

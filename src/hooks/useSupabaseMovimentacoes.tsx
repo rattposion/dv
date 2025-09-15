@@ -75,50 +75,29 @@ export const useSupabaseMovimentacoes = () => {
 
   const addOperacao = async (operacao: Omit<OperacaoLocal, 'id' | 'data'>) => {
     try {
-      // Buscar produto pelo código da caixa
-      const { data: produto, error: findError } = await supabase
-        .from('produtos')
-        .select('id')
-        .eq('codigo', operacao.caixaId)
-        .single();
-
-      if (findError) {
-        // Se não encontrar produto, criar uma movimentação genérica
-        console.warn('Produto não encontrado para caixa:', operacao.caixaId);
-      }
-
-      const movimentacao: Omit<MovimentacaoSupabase, 'id' | 'created_at'> = {
-        produto_id: produto?.id || '00000000-0000-0000-0000-000000000000',
-        tipo_movimento: operacao.tipo,
-        quantidade: operacao.quantidade,
-        motivo: operacao.destino,
-        documento: operacao.caixaId,
-        observacoes: operacao.observacao
-      };
-
-      const { data, error } = await supabase
-        .from('movimentacoes_estoque')
-        .insert([movimentacao])
-        .select()
-        .single();
-
-      if (error) throw error;
-
+      // Para movimentações de caixas, apenas registrar localmente
+      // As caixas têm seu próprio sistema de rastreamento e não precisam
+      // ser registradas na tabela movimentacoes_estoque que é para produtos
       const novaOperacao: OperacaoLocal = {
         ...operacao,
-        id: data.id,
+        id: crypto.randomUUID(),
         data: new Date()
       };
 
-      setMovimentacoes(prev => [data as any, ...prev]);
       setOperacoes(prev => [novaOperacao, ...prev]);
+
+      toast({
+        title: "Operação registrada",
+        description: `${operacao.tipo === 'entrada' ? 'Entrada' : 'Saída'} registrada com sucesso`,
+      });
       
       return novaOperacao;
     } catch (error: any) {
+      console.error('Erro ao adicionar operação:', error);
       toast({
-        variant: "destructive",
         title: "Erro ao registrar operação",
-        description: error.message
+        description: error.message,
+        variant: "destructive",
       });
       throw error;
     }

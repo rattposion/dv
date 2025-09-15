@@ -21,6 +21,7 @@ export interface ProdutoSupabase {
 
 export interface CaixaLocal {
   id: string;
+  numero_caixa: string;
   equipamento: string;
   modelo: string;
   quantidade: number;
@@ -38,6 +39,7 @@ export const useSupabaseProdutos = () => {
   // Converter produtos para caixas (mantém compatibilidade)
   const convertProdutoToCaixa = (produto: ProdutoSupabase): CaixaLocal => ({
     id: produto.codigo || produto.id,
+    numero_caixa: produto.codigo || produto.id,
     equipamento: produto.nome,
     modelo: produto.categoria || 'Padrão',
     quantidade: produto.estoque_atual,
