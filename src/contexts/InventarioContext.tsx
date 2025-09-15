@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { CaixaInventario } from '@/hooks/useSupabaseCaixasInventario';
 
 export interface Caixa {
   id: string;
+  numero_caixa: string;
   equipamento: string;
   modelo: string;
   quantidade: number;
@@ -16,6 +18,7 @@ interface InventarioContextType {
   addCaixa: (caixa: Caixa) => void;
   updateCaixa: (id: string, updates: Partial<Caixa>) => void;
   syncEstoque?: (aumentarEstoque: (modelo: string, quantidade: number) => void, getEstoquePorModelo: (modelo: string) => number) => void;
+  syncWithSupabase: (supabaseCaixas: CaixaInventario[]) => void;
 }
 
 const InventarioContext = createContext<InventarioContextType | undefined>(undefined);
@@ -30,7 +33,13 @@ export function InventarioProvider({ children }: { children: ReactNode }) {
   }>({});
 
   const removeCaixa = (id: string) => {
-    setCaixas(prevCaixas => prevCaixas.filter(caixa => caixa.id !== id));
+    console.log('InventarioContext: removeCaixa chamado para ID:', id);
+    console.log('InventarioContext: caixas antes da remoção:', caixas.length);
+    setCaixas(prevCaixas => {
+      const novasCaixas = prevCaixas.filter(caixa => caixa.id !== id);
+      console.log('InventarioContext: caixas após remoção:', novasCaixas.length);
+      return novasCaixas;
+    });
   };
 
   const addCaixa = (caixa: Caixa) => {
@@ -66,8 +75,26 @@ export function InventarioProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const syncWithSupabase = useCallback((supabaseCaixas: CaixaInventario[]) => {
+    console.log('InventarioContext: syncWithSupabase chamado com', supabaseCaixas.length, 'caixas');
+    console.log('InventarioContext: caixas atuais antes da sync:', caixas.length);
+    // Converter CaixaInventario para Caixa
+    const caixasConvertidas: Caixa[] = supabaseCaixas.map(caixa => ({
+      id: caixa.id,
+      numero_caixa: caixa.numero_caixa,
+      equipamento: caixa.equipamento,
+      modelo: caixa.modelo,
+      quantidade: caixa.quantidade,
+      responsavel: caixa.responsavel,
+      status: caixa.status,
+      macs: caixa.macs
+    }));
+    setCaixas(caixasConvertidas);
+    console.log('InventarioContext: caixas após sync:', caixasConvertidas.length);
+  }, [caixas.length]);
+
   return (
-    <InventarioContext.Provider value={{ caixas, removeCaixa, addCaixa, updateCaixa, syncEstoque }}>
+    <InventarioContext.Provider value={{ caixas, removeCaixa, addCaixa, updateCaixa, syncEstoque, syncWithSupabase }}>
       {children}
     </InventarioContext.Provider>
   );
