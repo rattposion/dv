@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMacValidation } from "@/hooks/useMacValidation";
 
 interface MacAddressInputProps {
   value: string;
@@ -25,38 +26,32 @@ export function MacAddressInput({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { formatMacAddress, validateMacFormat, checkMacExists } = useMacValidation();
 
-  // Formatar MAC address automaticamente
-  const formatMacAddress = (input: string) => {
-    // Remove caracteres não hexadecimais
-    const clean = input.replace(/[^0-9A-Fa-f]/g, '');
-    
-    // Adiciona dois pontos a cada 2 caracteres
-    const formatted = clean.match(/.{1,2}/g)?.join(':') || clean;
-    
-    // Limita a 17 caracteres (formato AA:BB:CC:DD:EE:FF)
-    return formatted.substring(0, 17);
-  };
-
-  const validateMacAddress = (mac: string) => {
-    const macRegex = /^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$/;
-    return macRegex.test(mac);
-  };
-
-  const addMacAddress = (mac: string) => {
+  const addMacAddress = async (mac: string) => {
     if (mac) {
-      if (!macAddresses.includes(mac.toUpperCase())) {
-        const newMacAddresses = [...macAddresses, mac.toUpperCase()];
-        setMacAddresses(newMacAddresses);
-        updateParentValue(newMacAddresses);
-        setCurrentInput("");
-      } else {
+      const macUpper = mac.toUpperCase();
+      
+      // Verificar se já está na lista local
+      if (macAddresses.includes(macUpper)) {
         toast({
           title: "MAC já incluído",
           description: "Este MAC address já foi adicionado à lista",
           variant: "destructive",
         });
+        return;
       }
+      
+      // Verificar se já existe no sistema
+      const exists = await checkMacExists(mac);
+      if (exists) {
+        return; // O hook já mostra o toast de erro
+      }
+      
+      const newMacAddresses = [...macAddresses, macUpper];
+      setMacAddresses(newMacAddresses);
+      updateParentValue(newMacAddresses);
+      setCurrentInput("");
     }
   };
 
@@ -89,32 +84,46 @@ export function MacAddressInput({
         formattedMac = mac.match(/.{1,2}/g)?.join(':') || mac;
       }
       
-      if (validateMacAddress(formattedMac)) {
+      if (validateMacFormat(formattedMac)) {
         validMacs.push(formattedMac);
       } else if (mac.length > 0) {
         invalidMacs.push(mac);
       }
     });
 
-    // Adicionar MACs válidos
-    let addedCount = 0;
-    validMacs.forEach(mac => {
-      if (!macAddresses.includes(mac.toUpperCase())) {
-        addedCount++;
-      }
-    });
-
-    if (validMacs.length > 0) {
+    // Adicionar MACs válidos (verificando duplicatas globais)
+    const processMacs = async () => {
+      let addedCount = 0;
       const uniqueValidMacs = validMacs.filter(mac => !macAddresses.includes(mac.toUpperCase()));
-      const newMacAddresses = [...macAddresses, ...uniqueValidMacs.map(mac => mac.toUpperCase())];
-      setMacAddresses(newMacAddresses);
-      updateParentValue(newMacAddresses);
+      
+      for (const mac of uniqueValidMacs) {
+        const exists = await checkMacExists(mac);
+        if (!exists) {
+          addedCount++;
+        }
+      }
+      
+      if (addedCount > 0) {
+        const macsToAdd = [];
+        for (const mac of uniqueValidMacs) {
+          const exists = await checkMacExists(mac);
+          if (!exists) {
+            macsToAdd.push(mac.toUpperCase());
+          }
+        }
+        
+        const newMacAddresses = [...macAddresses, ...macsToAdd];
+        setMacAddresses(newMacAddresses);
+        updateParentValue(newMacAddresses);
 
-      toast({
-        title: "MACs adicionados",
-        description: `${addedCount} MAC${addedCount !== 1 ? 's' : ''} adicionado${addedCount !== 1 ? 's' : ''} com sucesso`,
-      });
-    }
+        toast({
+          title: "MACs adicionados",
+          description: `${addedCount} MAC${addedCount !== 1 ? 's' : ''} adicionado${addedCount !== 1 ? 's' : ''} com sucesso`,
+        });
+      }
+    };
+    
+    processMacs();
 
     if (invalidMacs.length > 0) {
       toast({
@@ -141,7 +150,7 @@ export function MacAddressInput({
       const parts = input.split("|");
       const macToAdd = formatMacAddress(parts[0].trim());
       
-      if (macToAdd && validateMacAddress(macToAdd)) {
+      if (macToAdd && validateMacFormat(macToAdd)) {
         addMacAddress(macToAdd);
       }
       
@@ -155,7 +164,7 @@ export function MacAddressInput({
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      if (currentInput && validateMacAddress(currentInput)) {
+      if (currentInput && validateMacFormat(currentInput)) {
         addMacAddress(currentInput);
       }
     }
@@ -167,7 +176,7 @@ export function MacAddressInput({
   };
 
   const handleAddClick = () => {
-    if (currentInput && validateMacAddress(currentInput)) {
+    if (currentInput && validateMacFormat(currentInput)) {
       addMacAddress(currentInput);
     }
   };
@@ -213,14 +222,14 @@ export function MacAddressInput({
           />
           
           {/* Indicador visual de formatação */}
-          {currentInput && !validateMacAddress(currentInput) && (
+          {currentInput && !validateMacFormat(currentInput) && (
             <div className="absolute right-2 top-1/2 -translate-y-1/2">
               <div className="w-2 h-2 rounded-full bg-warning animate-pulse" 
                    title="Formato incompleto - continue digitando ou use | para adicionar" />
             </div>
           )}
           
-          {currentInput && validateMacAddress(currentInput) && (
+          {currentInput && validateMacFormat(currentInput) && (
             <div className="absolute right-2 top-1/2 -translate-y-1/2">
               <div className="w-2 h-2 rounded-full bg-success" 
                    title="Formato válido - pressione Enter, Tab ou | para adicionar" />
@@ -233,7 +242,7 @@ export function MacAddressInput({
           variant="outline"
           size="sm"
           onClick={handleAddClick}
-          disabled={!currentInput || !validateMacAddress(currentInput)}
+          disabled={!currentInput || !validateMacFormat(currentInput)}
           className="px-3"
         >
           <Plus className="h-4 w-4" />
