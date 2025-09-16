@@ -266,12 +266,14 @@ export function useMacValidation() {
     const errorMessage = error?.message || error?.toString() || '';
     
     if (errorMessage.includes('já está registrado')) {
-      // Extrair informações do erro de MAC duplicado
+      // Extrair informações do erro de MAC duplicado com ID
       const macMatch = errorMessage.match(/MAC ([A-F0-9:]+) já está registrado/i);
       const tableMatch = errorMessage.match(/na tabela (\w+)/i);
+      const idMatch = errorMessage.match(/\(ID: ([a-f0-9-]+)\)/i);
       
       const mac = macMatch ? macMatch[1] : 'desconhecido';
       const table = tableMatch ? tableMatch[1] : 'sistema';
+      const recordId = idMatch ? idMatch[1] : null;
       
       let friendlyTableName = table;
       switch (table) {
@@ -286,9 +288,15 @@ export function useMacValidation() {
           break;
       }
       
+      let description = `O MAC ${mac} já está registrado em ${friendlyTableName}.`;
+      if (recordId) {
+        description += ` ID do registro: ${recordId.substring(0, 8)}...`;
+      }
+      description += ' Cada MAC deve ser único no sistema.';
+      
       toast({
         title: "MAC duplicado detectado",
-        description: `O MAC ${mac} já está registrado em ${friendlyTableName}. Cada MAC deve ser único no sistema.`,
+        description,
         variant: "destructive",
       });
     } else if (errorMessage.includes('está duplicado dentro do mesmo registro')) {
@@ -297,7 +305,17 @@ export function useMacValidation() {
       
       toast({
         title: "MAC duplicado no registro",
-        description: `O MAC ${mac} aparece mais de uma vez no mesmo registro. Remova as duplicatas.`,
+        description: `O MAC ${mac} aparece mais de uma vez no mesmo registro. Remova as duplicatas antes de salvar.`,
+        variant: "destructive",
+      });
+    } else if (errorMessage.includes('Remova as duplicatas antes de salvar')) {
+      // Nova mensagem de erro melhorada
+      const macMatch = errorMessage.match(/MAC ([A-F0-9:]+)/i);
+      const mac = macMatch ? macMatch[1] : 'desconhecido';
+      
+      toast({
+        title: "MAC duplicado no registro",
+        description: `O MAC ${mac} está duplicado dentro do mesmo registro. Remova as duplicatas antes de salvar.`,
         variant: "destructive",
       });
     } else {
