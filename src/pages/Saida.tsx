@@ -23,6 +23,7 @@ import { useSupabaseCaixasInventario } from "@/hooks/useSupabaseCaixasInventario
 import { useSupabaseMovimentacoes } from "@/hooks/useSupabaseMovimentacoes";
 import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
 import { FileUploadRMA } from "@/components/rma/FileUploadRMA";
+import { useMacValidation } from "@/hooks/useMacValidation";
 
 export default function Saida() {
   const [selectedCaixa, setSelectedCaixa] = useState("");
@@ -66,6 +67,7 @@ export default function Saida() {
   const { diminuirEstoque } = useEstoque();
   const { caixas: caixasDisponiveis, removeCaixa: removeInventarioCaixa, syncWithSupabase } = useInventario();
   const { addOperacao: addOperacaoSupabase } = useSupabaseMovimentacoes();
+  const { formatMacAddress, validateMacFormat, checkMacExists, handleDatabaseError } = useMacValidation();
   
   // Sincronizar dados do Supabase com o contexto local apenas na inicialização
   useEffect(() => {
@@ -357,17 +359,26 @@ export default function Saida() {
 
   // Funções para RMA
   const isValidMacFormat = (mac: string) => {
-    const macWithoutColons = mac.replace(/:/g, '');
-    const macPattern = /^[0-9A-Fa-f]{12}$/;
-    return macPattern.test(macWithoutColons);
+    // Remove dois pontos e valida
+    const cleanMac = mac.replace(/:/g, '');
+    if (cleanMac.length === 12 && /^[0-9A-Fa-f]{12}$/.test(cleanMac)) {
+      return true;
+    }
+    // Ou valida formato com dois pontos
+    return validateMacFormat(mac);
   };
 
   const formatMac = (mac: string) => {
+    // Se já tem dois pontos, usa formatMacAddress do hook
+    if (mac.includes(':')) {
+      return formatMacAddress(mac).toUpperCase();
+    }
+    // Se não tem, formata manualmente
     const cleanMac = mac.replace(/:/g, '').toUpperCase();
     return cleanMac.replace(/(.{2})/g, '$1:').slice(0, -1);
   };
 
-  const addMacAddressRMA = (macInput: string) => {
+  const addMacAddressRMA = async (macInput: string) => {
     const cleanMac = macInput.trim();
     
     if (!cleanMac) {
@@ -390,6 +401,7 @@ export default function Saida() {
 
     const formattedMac = formatMac(cleanMac);
 
+    // Verificar duplicata local
     if (macsRMA.includes(formattedMac)) {
       toast({
         title: "MAC duplicado",
@@ -397,6 +409,12 @@ export default function Saida() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Verificar duplicata global
+    const exists = await checkMacExists(formattedMac);
+    if (exists) {
+      return; // O hook já mostra o toast de erro
     }
 
     setMacsRMA(prev => [...prev, formattedMac]);

@@ -13,6 +13,7 @@ import { useFuncionario } from "@/contexts/FuncionarioContext";
 import { useEquipamento } from "@/contexts/EquipamentoContext";
 import { useSupabaseProducao } from "@/hooks/useSupabaseProducao";
 import { useSupabaseResets } from "@/hooks/useSupabaseResets";
+import { useMacValidation } from "@/hooks/useMacValidation";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
@@ -26,6 +27,7 @@ export default function Producao() {
   const { equipamentos } = useEquipamento();
   const { registrarProducao, verificarEstoqueRecebimento, loading: loadingProducao } = useSupabaseProducao();
   const { addReset, resets, loading: loadingResets } = useSupabaseResets();
+  const { formatMacAddress, validateMacFormat, checkMacExists, handleDatabaseError } = useMacValidation();
   
   // Estados para o formulário de produção
   const [numeroCaixa, setNumeroCaixa] = useState("");
@@ -69,22 +71,30 @@ export default function Producao() {
     }
   }, [equipamentoSelecionado, verificarEstoqueRecebimento]);
 
-  // Função para validar formato MAC
+  // Função para validar formato MAC (mantida para compatibilidade)
   const isValidMacFormat = (mac: string) => {
-    // Aceita tanto com : quanto sem
-    const macWithoutColons = mac.replace(/:/g, '');
-    const macPattern = /^[0-9A-Fa-f]{12}$/;
-    return macPattern.test(macWithoutColons);
+    // Remove dois pontos e valida
+    const cleanMac = mac.replace(/:/g, '');
+    if (cleanMac.length === 12 && /^[0-9A-Fa-f]{12}$/.test(cleanMac)) {
+      return true;
+    }
+    // Ou valida formato com dois pontos
+    return validateMacFormat(mac);
   };
 
   // Função para formatar MAC address
   const formatMac = (mac: string) => {
+    // Se já tem dois pontos, usa formatMacAddress do hook
+    if (mac.includes(':')) {
+      return formatMacAddress(mac).toUpperCase();
+    }
+    // Se não tem, formata manualmente
     const cleanMac = mac.replace(/:/g, '').toUpperCase();
     return cleanMac.replace(/(.{2})/g, '$1:').slice(0, -1);
   };
 
 
-  const addMacAddress = (macInput: string) => {
+  const addMacAddress = async (macInput: string) => {
     const cleanMac = macInput.trim();
     
     if (!cleanMac) {
@@ -107,6 +117,7 @@ export default function Producao() {
 
     const formattedMac = formatMac(cleanMac);
 
+    // Verificar duplicata local
     if (macs.includes(formattedMac)) {
       toast({
         title: "MAC duplicado",
@@ -114,6 +125,12 @@ export default function Producao() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Verificar duplicata global
+    const exists = await checkMacExists(formattedMac);
+    if (exists) {
+      return; // O hook já mostra o toast de erro
     }
 
     setMacs(prev => [...prev, formattedMac]);
