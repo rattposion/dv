@@ -1,5 +1,6 @@
 import { Package, TruckIcon as Truck, RotateCcw, Activity, AlertTriangle, TrendingUp, Factory, Database, CheckCircle, Calendar, User, Settings, Wrench } from "lucide-react";
 import { StatsCard } from "./StatsCard";
+import { FuncionarioStatsCard } from "./FuncionarioStatsCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -411,6 +412,11 @@ export function OverviewSection() {
             </div>
           </CardContent>
         </Card>
+      </div>
+      
+      {/* Card de Estatísticas por Funcionário */}
+      <div className="mt-6">
+        <FuncionarioStatsCard />
       </div>
     </div>
   );
