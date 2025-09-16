@@ -12,13 +12,15 @@ interface MacAddressInputProps {
   onChange: (value: string) => void;
   label?: string;
   placeholder?: string;
+  currentPage?: 'recuperacao' | 'producao' | 'other';
 }
 
 export function MacAddressInput({ 
   value, 
   onChange, 
   label = "Endereços MAC",
-  placeholder = "Ex: AA:BB:CC:DD:EE:FF"
+  placeholder = "Ex: AA:BB:CC:DD:EE:FF",
+  currentPage = 'other'
 }: MacAddressInputProps) {
   const [currentInput, setCurrentInput] = useState("");
   const [macAddresses, setMacAddresses] = useState<string[]>(
@@ -26,7 +28,7 @@ export function MacAddressInput({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { formatMacAddress, validateMacFormat, checkMacExists } = useMacValidation();
+  const { formatMacAddress, validateMacFormat, checkMacExists, checkMacExistsWithRecoveryRule } = useMacValidation();
 
   const addMacAddress = async (mac: string) => {
     if (mac) {
@@ -42,8 +44,10 @@ export function MacAddressInput({
         return;
       }
       
-      // Verificar se já existe no sistema
-      const exists = await checkMacExists(mac);
+      // Verificar se já existe no sistema com regra especial
+      const exists = currentPage === 'other' 
+        ? await checkMacExists(mac)
+        : await checkMacExistsWithRecoveryRule(mac, currentPage);
       if (exists) {
         return; // O hook já mostra o toast de erro
       }
