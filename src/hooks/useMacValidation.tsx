@@ -106,6 +106,127 @@ export function useMacValidation() {
     }
   };
 
+  // Verificar MAC com regra especial: Recuperação -> Produção permitido
+  const checkMacExistsWithRecoveryRule = async (mac: string, currentPage: 'recuperacao' | 'producao' | 'other', excludeId?: string): Promise<boolean> => {
+    try {
+      const macUpper = mac.toUpperCase();
+      
+      // Verificar na tabela equipamentos
+      const { data: equipamentos, error: equipError } = await supabase
+        .from('equipamentos')
+        .select('id, nome, mac_address')
+        .eq('mac_address', macUpper)
+        .neq('id', excludeId || '');
+
+      if (equipError) {
+        console.error('Erro ao verificar equipamentos:', equipError);
+        return false;
+      }
+
+      if (equipamentos && equipamentos.length > 0) {
+        toast({
+          title: "MAC já registrado",
+          description: `Este MAC já está registrado no equipamento: ${equipamentos[0].nome}`,
+          variant: "destructive",
+        });
+        return true;
+      }
+
+      // Verificar na tabela caixas_inventario
+      const { data: caixas, error: caixasError } = await supabase
+        .from('caixas_inventario')
+        .select('id, numero_caixa, equipamento, macs')
+        .contains('macs', [macUpper])
+        .neq('id', excludeId || '');
+
+      if (caixasError) {
+        console.error('Erro ao verificar caixas de inventário:', caixasError);
+        return false;
+      }
+
+      if (caixas && caixas.length > 0) {
+        toast({
+          title: "MAC já registrado",
+          description: `Este MAC já está registrado na caixa: ${caixas[0].numero_caixa} (${caixas[0].equipamento})`,
+          variant: "destructive",
+        });
+        return true;
+      }
+
+      // Verificar na tabela defeitos
+      const { data: defeitos, error: defeitosError } = await supabase
+        .from('defeitos')
+        .select('id, equipamento, modelo, macs')
+        .contains('macs', [macUpper])
+        .neq('id', excludeId || '');
+
+      if (defeitosError) {
+        console.error('Erro ao verificar defeitos:', defeitosError);
+        return false;
+      }
+
+      if (defeitos && defeitos.length > 0) {
+        toast({
+          title: "MAC já registrado",
+          description: `Este MAC já está registrado em defeitos: ${defeitos[0].equipamento} ${defeitos[0].modelo}`,
+          variant: "destructive",
+        });
+        return true;
+      }
+
+      // Verificar na tabela recuperacoes
+      const { data: recuperacoes, error: recuperacoesError } = await supabase
+        .from('recuperacoes')
+        .select('id, equipamento, responsavel, macs')
+        .contains('macs', [macUpper])
+        .neq('id', excludeId || '');
+
+      if (recuperacoesError) {
+        console.error('Erro ao verificar recuperações:', recuperacoesError);
+        return false;
+      }
+
+      // Regra especial: Se estamos na página de Produção e o MAC existe em Recuperação, permitir
+      if (currentPage === 'producao' && recuperacoes && recuperacoes.length > 0) {
+        // Permitir o uso do MAC da recuperação na produção
+        return false;
+      }
+
+      // Para outras páginas ou se não estamos na produção, aplicar validação normal
+      if (recuperacoes && recuperacoes.length > 0) {
+        // Se estamos na página de recuperação, não permitir duplicatas
+        if (currentPage === 'recuperacao') {
+          toast({
+            title: "MAC já registrado",
+            description: `Este MAC já está registrado em recuperação: ${recuperacoes[0].equipamento}`,
+            variant: "destructive",
+          });
+          return true;
+        }
+        
+        // Para outras páginas, mostrar que existe em recuperação mas não bloquear se for produção
+        if (currentPage !== 'producao') {
+          toast({
+            title: "MAC já registrado",
+            description: `Este MAC já está registrado em recuperação: ${recuperacoes[0].equipamento}`,
+            variant: "destructive",
+          });
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Erro ao verificar duplicatas de MAC:', error);
+      toast({
+        title: "Erro de validação",
+        description: "Não foi possível verificar se o MAC já existe. Tente novamente.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   // Validar lista de MACs (verifica formato e duplicatas)
   const validateMacList = async (macs: string[], excludeId?: string): Promise<{ valid: boolean; errors: string[] }> => {
     const errors: string[] = [];
@@ -189,11 +310,47 @@ export function useMacValidation() {
     }
   };
 
+  // Validar lista de MACs com regra especial para Recuperação -> Produção
+  const validateMacListWithRecoveryRule = async (macs: string[], currentPage: 'recuperacao' | 'producao' | 'other', excludeId?: string): Promise<{ valid: boolean; errors: string[] }> => {
+    const errors: string[] = [];
+    const seenMacs = new Set<string>();
+
+    for (const mac of macs) {
+      const macUpper = mac.toUpperCase();
+      
+      // Verificar formato
+      if (!validateMacFormat(mac)) {
+        errors.push(`MAC com formato inválido: ${mac}`);
+        continue;
+      }
+
+      // Verificar duplicatas na própria lista
+      if (seenMacs.has(macUpper)) {
+        errors.push(`MAC duplicado na lista: ${mac}`);
+        continue;
+      }
+      seenMacs.add(macUpper);
+
+      // Verificar duplicatas globais com regra especial
+      const exists = await checkMacExistsWithRecoveryRule(mac, currentPage, excludeId);
+      if (exists) {
+        errors.push(`MAC já registrado no sistema: ${mac}`);
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  };
+
   return {
     formatMacAddress,
     validateMacFormat,
     checkMacExists,
+    checkMacExistsWithRecoveryRule,
     validateMacList,
+    validateMacListWithRecoveryRule,
     handleDatabaseError
   };
 }

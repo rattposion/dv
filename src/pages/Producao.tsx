@@ -27,7 +27,7 @@ export default function Producao() {
   const { equipamentos } = useEquipamento();
   const { registrarProducao, verificarEstoqueRecebimento, loading: loadingProducao } = useSupabaseProducao();
   const { addReset, resets, loading: loadingResets } = useSupabaseResets();
-  const { formatMacAddress, validateMacFormat, checkMacExists, handleDatabaseError } = useMacValidation();
+  const { formatMacAddress, validateMacFormat, checkMacExistsWithRecoveryRule, handleDatabaseError } = useMacValidation();
   
   // Estados para o formulário de produção
   const [numeroCaixa, setNumeroCaixa] = useState("");
@@ -127,8 +127,8 @@ export default function Producao() {
       return;
     }
 
-    // Verificar duplicata global
-    const exists = await checkMacExists(formattedMac);
+    // Verificar duplicata global com regra especial para recuperação
+    const exists = await checkMacExistsWithRecoveryRule(formattedMac, 'producao');
     if (exists) {
       return; // O hook já mostra o toast de erro
     }

@@ -14,6 +14,7 @@ import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
 import { useSupabaseEquipamentos } from "@/hooks/useSupabaseEquipamentos";
 import { useSupabaseFuncionarios } from "@/hooks/useSupabaseFuncionarios";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMacValidation } from "@/hooks/useMacValidation";
 
 export default function Recuperacao() {
   const { toast } = useToast();
@@ -45,11 +46,54 @@ export default function Recuperacao() {
     }
   }, [selectedEquipment]);
 
-  const adicionarMac = () => {
-    if (macAtual.trim() && !macs.includes(macAtual.trim())) {
-      setMacs([...macs, macAtual.trim()]);
-      setMacAtual("");
+  const { formatMacAddress, validateMacFormat, checkMacExistsWithRecoveryRule } = useMacValidation();
+
+  const adicionarMac = async () => {
+    const cleanMac = macAtual.trim();
+    
+    if (!cleanMac) {
+      toast({
+        title: "Erro",
+        description: "Digite um endereço MAC válido",
+        variant: "destructive",
+      });
+      return;
     }
+
+    if (!validateMacFormat(cleanMac)) {
+      toast({
+        title: "Formato inválido",
+        description: "MAC deve ter 12 caracteres hexadecimais (ex: C85A9FC7B9C0 ou C8:5A:9F:C7:B9:C0)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formattedMac = formatMacAddress(cleanMac);
+
+    // Verificar duplicata local
+    if (macs.includes(formattedMac)) {
+      toast({
+        title: "MAC duplicado",
+        description: "Este endereço MAC já foi adicionado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar duplicata global com regra especial para recuperação
+    const exists = await checkMacExistsWithRecoveryRule(formattedMac, 'recuperacao');
+    if (exists) {
+      return; // O hook já mostra o toast de erro
+    }
+
+    setMacs([...macs, formattedMac]);
+    setMacAtual("");
+    
+    toast({
+      title: "MAC adicionado",
+      description: `Endereço ${formattedMac} adicionado com sucesso`,
+    });
   };
 
   const removerMac = (macToRemove: string) => {
