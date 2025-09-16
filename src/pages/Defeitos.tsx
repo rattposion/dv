@@ -18,6 +18,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
 import { useFuncionario } from "@/contexts/FuncionarioContext";
 import { useEquipamento } from "@/contexts/EquipamentoContext";
+import { useMacValidation } from "@/hooks/useMacValidation";
 
 interface Defeito {
   id: string;
@@ -69,6 +70,7 @@ export default function Defeitos() {
   const { diminuirEstoqueRecebimento, getEstoqueDisponivel } = useSupabaseRecebimentos();
   const { funcionariosAprovados } = useFuncionario();
   const { equipamentos } = useEquipamento();
+  const { handleDatabaseError } = useMacValidation();
 
   const [novoDefeito, setNovoDefeito] = useState({
     equipamento: "",
@@ -214,11 +216,17 @@ export default function Defeitos() {
       fetchEstoqueRecebimento();
     } catch (error) {
       console.error('Erro ao salvar defeito:', error);
-      toast({
-        title: "Erro",
-        description: "Falha ao registrar defeito",
-        variant: "destructive",
-      });
+      
+      // Verificar se é erro de MAC duplicado
+      if (error?.message && (error.message.includes('já está registrado') || error.message.includes('duplicado'))) {
+        handleDatabaseError(error);
+      } else {
+        toast({
+          title: "Erro",
+          description: "Falha ao registrar defeito",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
