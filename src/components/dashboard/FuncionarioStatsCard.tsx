@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar, User, TrendingUp, AlertTriangle, RotateCcw } from "lucide-react";
+import { Calendar, User, TrendingUp, AlertTriangle, RotateCcw, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface FuncionarioStats {
   nome: string;
@@ -22,6 +23,35 @@ export function FuncionarioStatsCard() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Verificar se o usuário tem permissão para ver este componente
+  const hasAccess = user?.email === 'wesleyalves.cs@gmail.com';
+
+  // Se não tem acesso, mostrar mensagem de acesso negado
+  if (!hasAccess) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Lock className="h-4 w-4" />
+            Produção por Funcionário
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold text-muted-foreground mb-2">
+              Acesso Restrito
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Você não tem permissão para visualizar este relatório.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Carregar dados sem filtro de data inicialmente
   useEffect(() => {
