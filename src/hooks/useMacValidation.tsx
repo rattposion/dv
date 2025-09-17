@@ -261,6 +261,44 @@ export function useMacValidation() {
     };
   };
 
+  // Buscar todos os conflitos de um MAC específico
+  const findMacConflicts = async (mac: string): Promise<{
+    equipamentos: any[];
+    caixas: any[];
+    defeitos: any[];
+  }> => {
+    try {
+      const macUpper = mac.toUpperCase();
+      
+      // Buscar em equipamentos
+      const { data: equipamentos } = await supabase
+        .from('equipamentos')
+        .select('id, nome, modelo, mac_address, created_at')
+        .eq('mac_address', macUpper);
+      
+      // Buscar em caixas_inventario
+      const { data: caixas } = await supabase
+        .from('caixas_inventario')
+        .select('id, numero_caixa, equipamento, modelo, macs, created_at')
+        .contains('macs', [macUpper]);
+      
+      // Buscar em defeitos
+      const { data: defeitos } = await supabase
+        .from('defeitos')
+        .select('id, equipamento, modelo, macs, data_registro, created_at')
+        .contains('macs', [macUpper]);
+      
+      return {
+        equipamentos: equipamentos || [],
+        caixas: caixas || [],
+        defeitos: defeitos || []
+      };
+    } catch (error) {
+      console.error('Erro ao buscar conflitos de MAC:', error);
+      return { equipamentos: [], caixas: [], defeitos: [] };
+    }
+  };
+
   // Processar erro do banco de dados relacionado a MACs
   const handleDatabaseError = (error: any): void => {
     const errorMessage = error?.message || error?.toString() || '';
@@ -369,6 +407,7 @@ export function useMacValidation() {
     checkMacExistsWithRecoveryRule,
     validateMacList,
     validateMacListWithRecoveryRule,
-    handleDatabaseError
+    handleDatabaseError,
+    findMacConflicts
   };
 }

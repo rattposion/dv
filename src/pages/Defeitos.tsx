@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertTriangle, Plus, Calendar, User, Search, FileWarning, Camera, ExternalLink, Package, X, Monitor } from "lucide-react";
+import { AlertTriangle, Plus, Calendar, User, Search, FileWarning, Camera, ExternalLink, Package, X, Monitor, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -19,6 +19,10 @@ import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
 import { useFuncionario } from "@/contexts/FuncionarioContext";
 import { useEquipamento } from "@/contexts/EquipamentoContext";
 import { useMacValidation } from "@/hooks/useMacValidation";
+import { MacConflictDialog } from "@/components/defeitos/MacConflictDialog";
+import { MacValidator } from "@/components/defeitos/MacValidator";
+import { useSupabaseDefeitos } from "@/hooks/useSupabaseDefeitos";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Defeito {
   id: string;
@@ -66,7 +70,15 @@ export default function Defeitos() {
   const [modeloSelecionado, setModeloSelecionado] = useState("");
   const [estoqueRecebimento, setEstoqueRecebimento] = useState<{[modelo: string]: number}>({});
   const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
+  const [showMacConflict, setShowMacConflict] = useState(false);
+  const [conflictingMac, setConflictingMac] = useState("");
+  const [macsValidated, setMacsValidated] = useState(false);
+  const [hasValidationConflicts, setHasValidationConflicts] = useState(false);
+  const [editingDefeito, setEditingDefeito] = useState<Defeito | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { updateDefeito } = useSupabaseDefeitos();
+  const { user } = useAuth();
   const { diminuirEstoqueRecebimento, getEstoqueDisponivel } = useSupabaseRecebimentos();
   const { funcionariosAprovados } = useFuncionario();
   const { equipamentos } = useEquipamento();
@@ -162,6 +174,26 @@ export default function Defeitos() {
       return;
     }
 
+    // Verificar se há MACs e se foram validados
+    if (novoDefeito.macs.length > 0 && !macsValidated) {
+      toast({
+        title: "Validação Necessária",
+        description: "Por favor, valide os MACs antes de salvar o registro",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar se há conflitos de validação
+    if (hasValidationConflicts) {
+      toast({
+        title: "Conflitos de MAC",
+        description: "Resolva os conflitos de MAC antes de continuar",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Verificar estoque de recebimento disponível
     const estoqueDisponivel = getEstoqueDisponivel(novoDefeito.modelo);
     if (estoqueDisponivel < novoDefeito.quantidade) {
@@ -219,7 +251,14 @@ export default function Defeitos() {
       
       // Verificar se é erro de MAC duplicado
       if (error?.message && (error.message.includes('já está registrado') || error.message.includes('duplicado'))) {
-        handleDatabaseError(error);
+        // Extrair o MAC do erro para mostrar o diálogo de conflito
+        const macMatch = error.message.match(/MAC ([A-F0-9:]+) já está registrado/i);
+        if (macMatch) {
+          setConflictingMac(macMatch[1]);
+          setShowMacConflict(true);
+        } else {
+          handleDatabaseError(error);
+        }
       } else {
         toast({
           title: "Erro",
@@ -250,6 +289,99 @@ export default function Defeitos() {
     const tipoDefeito = TIPOS_DEFEITO.find(t => t.value === tipo);
     return tipoDefeito?.color || "secondary";
   };
+
+  const handleMacRemoved = (removedMac: string) => {
+    // Remover o MAC da lista atual se ele estava lá
+    setNovoDefeito(prev => ({
+      ...prev,
+      macs: prev.macs.filter(mac => mac.toUpperCase() !== removedMac.toUpperCase())
+    }));
+    
+    toast({
+      title: "MAC removido",
+      description: `O MAC ${removedMac} foi removido do registro conflitante. Você pode tentar salvar novamente.`,
+    });
+    
+    setShowMacConflict(false);
+  };
+
+  const isAdmin = () => {
+    return user?.email === 'wesley@dv.com' || user?.email === 'wesleyalves.cs@gmail.com' || user?.user_metadata?.role === 'admin';
+  };
+
+  const handleEditDefeito = (defeito: Defeito) => {
+    setEditingDefeito(defeito);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateDefeito = async () => {
+    if (!editingDefeito) return;
+
+    // Validar MACs se existirem
+    const macsToValidate = editingDefeito.macs?.filter(mac => mac.trim() !== '') || [];
+    
+    if (macsToValidate.length > 0) {
+      // Verificar conflitos de MAC (excluindo o próprio registro)
+      const { data: conflictingMacs } = await supabase
+        .from('defeitos')
+        .select('id, macs')
+        .neq('id', editingDefeito.id)
+        .not('macs', 'is', null);
+
+      const existingMacs = conflictingMacs?.flatMap(item => item.macs || []) || [];
+      const conflicts = macsToValidate.filter(mac => existingMacs.includes(mac));
+
+      if (conflicts.length > 0) {
+        setConflictingMac(conflicts[0]);
+        setShowMacConflict(true);
+        return;
+      }
+    }
+
+    try {
+      await updateDefeito(editingDefeito.id, {
+        equipamento: editingDefeito.equipamento,
+        modelo: editingDefeito.modelo,
+        quantidade: editingDefeito.quantidade,
+        tipo_defeito: editingDefeito.tipo_defeito,
+        responsavel: editingDefeito.responsavel,
+        data_registro: editingDefeito.data_registro,
+        observacoes: editingDefeito.observacoes,
+        origem: editingDefeito.origem,
+        foto_url: editingDefeito.foto_url,
+        destino: editingDefeito.destino,
+        descricao_defeito: editingDefeito.descricao_defeito,
+        macs: macsToValidate.length > 0 ? macsToValidate : null
+      });
+      
+      toast({
+        title: "Defeito atualizado",
+        description: "As alterações foram salvas com sucesso.",
+      });
+      
+      setIsEditDialogOpen(false);
+      setEditingDefeito(null);
+      fetchDefeitos();
+    } catch (error) {
+      console.error('Erro ao atualizar defeito:', error);
+      toast({
+        title: "Erro ao atualizar",
+        description: "Ocorreu um erro ao salvar as alterações.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMacValidation = (isValid: boolean, conflicts: string[]) => {
+    setMacsValidated(true);
+    setHasValidationConflicts(!isValid);
+  };
+
+  // Reset validation when MACs change
+  useEffect(() => {
+    setMacsValidated(false);
+    setHasValidationConflicts(false);
+  }, [novoDefeito.macs]);
 
   return (
     <DashboardLayout>
@@ -485,6 +617,15 @@ export default function Defeitos() {
                     Digite um MAC address e pressione Enter ou clique no botão + para adicionar
                   </p>
                 </div>
+                
+                {/* Validador de MACs */}
+                {novoDefeito.macs.length > 0 && (
+                  <MacValidator
+                    macs={novoDefeito.macs}
+                    onValidationComplete={handleMacValidation}
+                    className="mt-2"
+                  />
+                )}
               </div>
 
               <FileUploadDefeitos
@@ -507,7 +648,11 @@ export default function Defeitos() {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
                   Cancelar
                 </Button>
-                <Button onClick={salvarDefeito} disabled={loading} className="w-full sm:w-auto">
+                <Button 
+                  onClick={salvarDefeito} 
+                  disabled={loading || (novoDefeito.macs.length > 0 && (!macsValidated || hasValidationConflicts))} 
+                  className="w-full sm:w-auto"
+                >
                   {loading ? "Salvando..." : "Salvar Defeito"}
                 </Button>
               </div>
@@ -638,13 +783,23 @@ export default function Defeitos() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Badge variant={getCorBadge(defeito.tipo_defeito) as any}>
-                    {TIPOS_DEFEITO.find(t => t.value === defeito.tipo_defeito)?.label}
-                  </Badge>
-                  {defeito.origem && (
-                    <Badge variant="outline">{defeito.origem}</Badge>
-                  )}
-                </div>
+                <Badge variant={getCorBadge(defeito.tipo_defeito) as any}>
+                  {TIPOS_DEFEITO.find(t => t.value === defeito.tipo_defeito)?.label}
+                </Badge>
+                {defeito.origem && (
+                  <Badge variant="outline">{defeito.origem}</Badge>
+                )}
+                {isAdmin() && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditDefeito(defeito)}
+                    className="ml-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -713,7 +868,214 @@ export default function Defeitos() {
           </Card>
        )}
      </div>
-   </div>
-   </DashboardLayout>
- );
+      </div>
+      
+      {/* Diálogo de Conflito de MAC */}
+      <MacConflictDialog
+        isOpen={showMacConflict}
+        onClose={() => setShowMacConflict(false)}
+        conflictingMac={conflictingMac}
+        onMacRemoved={handleMacRemoved}
+      />
+
+      {/* Diálogo de Edição */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto mx-2">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl">Editar Defeito</DialogTitle>
+          </DialogHeader>
+          
+          {editingDefeito && (
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit_equipamento">Equipamento</Label>
+                  <Input
+                    id="edit_equipamento"
+                    value={editingDefeito.equipamento}
+                    onChange={(e) => setEditingDefeito(prev => prev ? { ...prev, equipamento: e.target.value } : null)}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit_modelo">Modelo</Label>
+                  <Input
+                    id="edit_modelo"
+                    value={editingDefeito.modelo}
+                    onChange={(e) => setEditingDefeito(prev => prev ? { ...prev, modelo: e.target.value } : null)}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit_quantidade">Quantidade</Label>
+                  <Input
+                    id="edit_quantidade"
+                    type="number"
+                    value={editingDefeito.quantidade}
+                    onChange={(e) => setEditingDefeito(prev => prev ? { ...prev, quantidade: parseInt(e.target.value) || 0 } : null)}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit_tipo_defeito">Tipo de Defeito</Label>
+                  <Select 
+                    value={editingDefeito.tipo_defeito} 
+                    onValueChange={(value) => setEditingDefeito(prev => prev ? { ...prev, tipo_defeito: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPOS_DEFEITO.map((tipo) => (
+                        <SelectItem key={tipo.value} value={tipo.value}>
+                          {tipo.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit_responsavel">Responsável</Label>
+                  <Select 
+                    value={editingDefeito.responsavel} 
+                    onValueChange={(value) => setEditingDefeito(prev => prev ? { ...prev, responsavel: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o funcionário" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {funcionariosAprovados.map((funcionario) => (
+                        <SelectItem key={funcionario.id} value={funcionario.nome}>
+                          {funcionario.nome} - {funcionario.funcao}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit_data_registro">Data do Registro</Label>
+                  <Input
+                    id="edit_data_registro"
+                    type="date"
+                    value={editingDefeito.data_registro}
+                    onChange={(e) => setEditingDefeito(prev => prev ? { ...prev, data_registro: e.target.value } : null)}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_descricao_defeito">Descrição do Defeito</Label>
+                <Textarea
+                  id="edit_descricao_defeito"
+                  value={editingDefeito.descricao_defeito || ''}
+                  onChange={(e) => setEditingDefeito(prev => prev ? { ...prev, descricao_defeito: e.target.value } : null)}
+                  placeholder="Descreva detalhadamente o defeito encontrado..."
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_destino">Destino do Item</Label>
+                <Select 
+                  value={editingDefeito.destino || ''} 
+                  onValueChange={(value) => setEditingDefeito(prev => prev ? { ...prev, destino: value } : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o destino" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DESTINOS.map((destino) => (
+                      <SelectItem key={destino.value} value={destino.value}>
+                        {destino.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_origem">Origem</Label>
+                <Input
+                  id="edit_origem"
+                  value={editingDefeito.origem || ''}
+                  onChange={(e) => setEditingDefeito(prev => prev ? { ...prev, origem: e.target.value } : null)}
+                  placeholder="De onde veio o equipamento defeituoso"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_observacoes">Observações Adicionais</Label>
+                <Textarea
+                  id="edit_observacoes"
+                  value={editingDefeito.observacoes || ''}
+                  onChange={(e) => setEditingDefeito(prev => prev ? { ...prev, observacoes: e.target.value } : null)}
+                  placeholder="Informações complementares..."
+                />
+              </div>
+
+              {/* Campo de edição de MACs */}
+              <div>
+                <Label>Endereços MAC</Label>
+                <div className="space-y-2">
+                  {editingDefeito.macs && editingDefeito.macs.length > 0 ? (
+                    editingDefeito.macs.map((mac, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={mac}
+                          onChange={(e) => {
+                            const newMacs = [...(editingDefeito.macs || [])];
+                            newMacs[index] = e.target.value;
+                            setEditingDefeito(prev => prev ? { ...prev, macs: newMacs } : null);
+                          }}
+                          placeholder="XX:XX:XX:XX:XX:XX"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newMacs = editingDefeito.macs?.filter((_, i) => i !== index) || [];
+                            setEditingDefeito(prev => prev ? { ...prev, macs: newMacs } : null);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Nenhum MAC cadastrado</p>
+                  )}
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const currentMacs = editingDefeito.macs || [];
+                      setEditingDefeito(prev => prev ? { ...prev, macs: [...currentMacs, ''] } : null);
+                    }}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar MAC
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="w-full sm:w-auto">
+                  Cancelar
+                </Button>
+                <Button onClick={handleUpdateDefeito} className="w-full sm:w-auto">
+                  Salvar Alterações
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </DashboardLayout>
+  );
 }

@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, CheckCircle2, AlertCircle, Trash2, Copy } from "lucide-react";
+import { Plus, X, CheckCircle2, AlertCircle, Trash2, Copy, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseRecuperacoes } from "@/hooks/useSupabaseRecuperacoes";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EquipmentSelector } from "@/components/defeitos/EquipmentSelector";
 import { useSupabaseEquipamentos } from "@/hooks/useSupabaseEquipamentos";
 import { useSupabaseFuncionarios } from "@/hooks/useSupabaseFuncionarios";
@@ -25,6 +26,7 @@ export default function Recuperacao() {
     recuperacoes, 
     loading, 
     createRecuperacao, 
+    updateRecuperacao,
     deleteRecuperacao
   } = useSupabaseRecuperacoes();
 
@@ -37,7 +39,20 @@ export default function Recuperacao() {
   const [macs, setMacs] = useState<string[]>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState("");
 
+  // Estados para edição
+  const [editingRecuperacao, setEditingRecuperacao] = useState<any>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editEquipamento, setEditEquipamento] = useState("");
+  const [editProblema, setEditProblema] = useState("");
+  const [editSolucao, setEditSolucao] = useState("");
+  const [editMacs, setEditMacs] = useState<string[]>([]);
+  const [editMacAtual, setEditMacAtual] = useState("");
+  const [editResponsavel, setEditResponsavel] = useState("");
+
   const funcionariosAtivos = funcionarios.filter(f => f.status === 'Ativo');
+
+  // Verificar se o usuário é admin (Wesley ou admin role)
+  const isAdmin = user?.email === 'wesleyalves.cs@gmail.com' || user?.user_metadata?.role === 'admin';
 
   // Auto-sync equipment selection
   useEffect(() => {
@@ -47,6 +62,107 @@ export default function Recuperacao() {
   }, [selectedEquipment]);
 
   const { formatMacAddress, validateMacFormat, checkMacExistsWithRecoveryRule } = useMacValidation();
+
+  // Função para abrir modal de edição
+  const openEditModal = (recuperacao: any) => {
+    setEditingRecuperacao(recuperacao);
+    setEditEquipamento(recuperacao.equipamento);
+    setEditProblema(recuperacao.problema);
+    setEditSolucao(recuperacao.solucao);
+    setEditMacs([...recuperacao.macs]);
+    setEditResponsavel(recuperacao.responsavel);
+    setEditMacAtual("");
+    setEditModalOpen(true);
+  };
+
+  // Função para fechar modal de edição
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setEditingRecuperacao(null);
+    setEditEquipamento("");
+    setEditProblema("");
+    setEditSolucao("");
+    setEditMacs([]);
+    setEditResponsavel("");
+    setEditMacAtual("");
+  };
+
+  // Função para adicionar MAC na edição
+  const adicionarMacEdicao = () => {
+    if (!editMacAtual.trim()) {
+      toast({
+        variant: "destructive",
+        title: "MAC inválido",
+        description: "Digite um endereço MAC válido"
+      });
+      return;
+    }
+
+    const macFormatado = formatMacAddress(editMacAtual);
+    
+    if (!validateMacFormat(macFormatado)) {
+      toast({
+        variant: "destructive",
+        title: "Formato inválido",
+        description: "O MAC deve ter o formato XX:XX:XX:XX:XX:XX"
+      });
+      return;
+    }
+
+    if (editMacs.includes(macFormatado)) {
+      toast({
+        variant: "destructive",
+        title: "MAC duplicado",
+        description: "Este MAC já foi adicionado"
+      });
+      return;
+    }
+
+    setEditMacs([...editMacs, macFormatado]);
+    setEditMacAtual("");
+  };
+
+  // Função para remover MAC na edição
+  const removerMacEdicao = (macToRemove: string) => {
+    setEditMacs(editMacs.filter(mac => mac !== macToRemove));
+  };
+
+  // Função para salvar edição
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editEquipamento || !editProblema || !editSolucao || !editResponsavel) {
+      toast({
+        variant: "destructive",
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios"
+      });
+      return;
+    }
+
+    if (editMacs.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "MAC obrigatório",
+        description: "Adicione pelo menos um endereço MAC"
+      });
+      return;
+    }
+
+    try {
+      await updateRecuperacao(editingRecuperacao.id, {
+        equipamento: editEquipamento,
+        problema: editProblema,
+        solucao: editSolucao,
+        macs: editMacs,
+        responsavel: editResponsavel
+      });
+      
+      closeEditModal();
+    } catch (error) {
+      console.error('Erro ao atualizar recuperação:', error);
+    }
+  };
 
   const adicionarMac = async () => {
     const cleanMac = macAtual.trim();
@@ -337,14 +453,28 @@ export default function Recuperacao() {
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteRecuperacao(recuperacao.id)}
-                            className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditModal(recuperacao)}
+                              className="h-8 w-8 p-0 hover:bg-blue-500 hover:text-white"
+                              title="Editar recuperação"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteRecuperacao(recuperacao.id)}
+                              className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                              title="Deletar recuperação"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       
@@ -377,6 +507,128 @@ export default function Recuperacao() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Modal de Edição */}
+        <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit className="h-5 w-5 text-blue-500" />
+                Editar Recuperação
+              </DialogTitle>
+              <DialogDescription>
+                Edite as informações da recuperação selecionada
+              </DialogDescription>
+            </DialogHeader>
+            
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-equipamento">Equipamento</Label>
+                  <Input
+                    id="edit-equipamento"
+                    value={editEquipamento}
+                    onChange={(e) => setEditEquipamento(e.target.value)}
+                    placeholder="Nome do equipamento"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-responsavel">Responsável</Label>
+                  <Select value={editResponsavel} onValueChange={setEditResponsavel}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o responsável" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {funcionariosAtivos.map((funcionario) => (
+                        <SelectItem key={funcionario.id} value={funcionario.nome}>
+                          {funcionario.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-problema">Problema</Label>
+                <Textarea
+                  id="edit-problema"
+                  value={editProblema}
+                  onChange={(e) => setEditProblema(e.target.value)}
+                  placeholder="Descreva o problema encontrado"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-solucao">Solução</Label>
+                <Textarea
+                  id="edit-solucao"
+                  value={editSolucao}
+                  onChange={(e) => setEditSolucao(e.target.value)}
+                  placeholder="Descreva a solução aplicada"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-mac">Endereços MAC</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="edit-mac"
+                    value={editMacAtual}
+                    onChange={(e) => setEditMacAtual(e.target.value)}
+                    placeholder="Digite o MAC (ex: 00:11:22:33:44:55)"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        adicionarMacEdicao();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={adicionarMacEdicao}
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {editMacs.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {editMacs.map((mac) => (
+                      <Badge key={mac} variant="secondary" className="flex items-center gap-1">
+                        {mac}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={() => removerMacEdicao(mac)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closeEditModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Salvar Alterações
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

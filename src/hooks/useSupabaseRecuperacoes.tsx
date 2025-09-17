@@ -114,6 +114,55 @@ export const useSupabaseRecuperacoes = () => {
   };
 
 
+  const updateRecuperacao = async (id: string, recuperacao: Partial<Omit<RecuperacaoSupabase, 'id' | 'created_at' | 'updated_at'>>) => {
+    try {
+      console.log('Atualizando recuperação com dados:', recuperacao);
+
+      const { data, error } = await supabase
+        .from('recuperacoes')
+        .update(recuperacao)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro do Supabase ao atualizar:', error);
+        throw error;
+      }
+
+      console.log('Dados atualizados com sucesso:', data);
+
+      const recuperacaoAtualizada = {
+        id: data.id,
+        equipamento: data.equipamento,
+        problema: data.problema,
+        solucao: data.solucao,
+        macs: data.macs,
+        responsavel: data.responsavel,
+        data_recuperacao: data.data_recuperacao,
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      };
+
+      setRecuperacoes(prev => prev.map(r => r.id === id ? recuperacaoAtualizada : r));
+      
+      toast({
+        title: "Recuperação atualizada",
+        description: "Registro atualizado com sucesso."
+      });
+
+      return recuperacaoAtualizada;
+    } catch (error: any) {
+      console.error('Erro completo ao atualizar recuperação:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao atualizar recuperação",
+        description: error.message
+      });
+      throw error;
+    }
+  };
+
   const deleteRecuperacao = async (id: string) => {
     try {
       const { error } = await supabase
@@ -158,6 +207,7 @@ export const useSupabaseRecuperacoes = () => {
     loading,
     totalRecuperados,
     createRecuperacao,
+    updateRecuperacao,
     deleteRecuperacao,
     refetch: fetchData
   };
