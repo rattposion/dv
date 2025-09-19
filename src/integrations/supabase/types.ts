@@ -901,6 +901,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_presence: {
+        Row: {
+          id: string
+          user_id: string
+          user_email: string
+          user_name: string
+          current_page: string
+          last_seen: string
+          is_online: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          user_email: string
+          user_name: string
+          current_page: string
+          last_seen?: string
+          is_online?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          user_email?: string
+          user_name?: string
+          current_page?: string
+          last_seen?: string
+          is_online?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -912,6 +948,41 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      set_user_online: {
+        Args: {
+          user_id: string
+          user_email: string
+          user_name: string
+          current_page: string
+        }
+        Returns: boolean
+      }
+      set_user_offline: {
+        Args: {
+          _user_id: string
+          _session_id?: string
+        }
+        Returns: boolean
+      }
+      cleanup_offline_users: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      get_cleanup_job_status: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      upsert_user_presence: {
+        Args: {
+          _user_id: string
+          _user_email: string
+          _user_name: string
+          _current_page: string
+          _page_title?: string
+          _session_id?: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
