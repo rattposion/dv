@@ -3,6 +3,7 @@ import { Header } from "./Header";
 import { ReactNode, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useUserPresence } from "@/hooks/useUserPresence";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -11,6 +12,9 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  
+  // Ativar rastreamento de presença para usuários autenticados
+  useUserPresence();
 
   useEffect(() => {
     if (!loading && !user) {

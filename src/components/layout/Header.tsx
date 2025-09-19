@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { MacSearch } from "./MacSearch";
 import { MobileMenu } from "./MobileMenu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { OnlineUsersIndicator } from "@/components/common/OnlineUsersIndicator";
 
 export function Header() {
   const { user, signOut } = useAuth();
@@ -51,6 +52,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-3">
+          <OnlineUsersIndicator />
           <ThemeToggle />
           
           <Button variant="ghost" size="sm" className="relative">
