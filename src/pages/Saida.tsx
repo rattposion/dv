@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Package, TruckIcon as Truck, AlertTriangle, Calendar, User, Split, Plus, X, Info, Copy } from "lucide-react";
+import { Search, Package, TruckIcon as Truck, AlertTriangle, Calendar, User, Split, Plus, X, Info, Copy, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -354,6 +354,90 @@ export default function Saida() {
     toast({
       title: "Processamento concluído",
       description: statusMsg,
+    });
+  };
+
+  // Função para gerar CSV dos equipamentos não encontrados
+  const gerarCSVEquipamentosNaoEncontrados = () => {
+    if (resultadoProcessamento.naoEncontrados.length === 0) {
+      toast({
+        title: "Nenhum equipamento",
+        description: "Não há equipamentos não encontrados para gerar o CSV",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Solicitar o id_produto e número inicial do codigo_item
+    const idProduto = prompt("Digite o ID do produto:");
+    if (!idProduto) {
+      toast({
+        title: "Cancelado",
+        description: "Geração de CSV cancelada",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const numeroInicial = prompt("Digite o número inicial para o codigo_item:");
+    if (!numeroInicial || isNaN(Number(numeroInicial))) {
+      toast({
+        title: "Número inválido",
+        description: "Digite um número válido para o codigo_item inicial",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const numeroInicialInt = parseInt(numeroInicial);
+
+    // Criar cabeçalho do CSV
+    const csvHeader = "id_produto,codigo_item,mac_address\n";
+    
+    // Função para formatar MAC com dois pontos
+    const formatMacForCSV = (mac: string): string => {
+      // Remove todos os caracteres que não são hexadecimais
+      const cleanMac = mac.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+      
+      // Se tem 12 caracteres, formata com dois pontos
+      if (cleanMac.length === 12) {
+        return cleanMac.replace(/(.{2})/g, '$1:').slice(0, -1);
+      }
+      
+      // Se tem 11 caracteres, adiciona um zero no início e formata
+      if (cleanMac.length === 11) {
+        const paddedMac = '0' + cleanMac;
+        return paddedMac.replace(/(.{2})/g, '$1:').slice(0, -1);
+      }
+      
+      // Se já está no formato correto, retorna como está
+      return mac;
+    };
+
+    // Criar linhas do CSV
+    const csvLines = resultadoProcessamento.naoEncontrados.map((mac, index) => {
+      const codigoItem = numeroInicialInt + index;
+      const formattedMac = formatMacForCSV(mac);
+      return `"${idProduto}","${codigoItem}","${formattedMac}"`;
+    }).join('\n');
+
+    // Combinar cabeçalho e linhas
+    const csvContent = csvHeader + csvLines;
+
+    // Criar e baixar o arquivo
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `equipamentos_nao_encontrados_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "CSV gerado",
+      description: `Arquivo CSV gerado com ${resultadoProcessamento.naoEncontrados.length} equipamentos`,
     });
   };
 
@@ -1326,21 +1410,33 @@ export default function Saida() {
                               <div className="w-2 h-2 bg-gradient-to-r from-red-400 to-red-600 rounded-full"></div>
                               ❌ Equipamentos Não Encontrados
                             </h4>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="text-red-600 dark:text-red-400 border-red-300 dark:border-red-600 hover:bg-red-100 dark:hover:bg-red-900 hover:scale-105 transition-all duration-200 shadow-sm"
-                              onClick={() => {
-                                const macsList = resultadoProcessamento.naoEncontrados.join(',');
-                                navigator.clipboard.writeText(macsList);
-                                toast({
-                                  title: "Lista copiada",
-                                  description: "MACs não encontrados copiados para a área de transferência",
-                                });
-                              }}
-                            >
-                              Copiar
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="text-red-600 dark:text-red-400 border-red-300 dark:border-red-600 hover:bg-red-100 dark:hover:bg-red-900 hover:scale-105 transition-all duration-200 shadow-sm"
+                                onClick={() => {
+                                  const macsList = resultadoProcessamento.naoEncontrados.join(',');
+                                  navigator.clipboard.writeText(macsList);
+                                  toast({
+                                    title: "Lista copiada",
+                                    description: "MACs não encontrados copiados para a área de transferência",
+                                  });
+                                }}
+                              >
+                                <Copy className="h-4 w-4 mr-1" />
+                                Copiar
+                              </Button>
+                              <Button 
+                                variant="default" 
+                                size="sm"
+                                className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:scale-105 transition-all duration-200 shadow-sm"
+                                onClick={gerarCSVEquipamentosNaoEncontrados}
+                              >
+                                <Download className="h-4 w-4 mr-1" />
+                                Gerar Compra
+                              </Button>
+                            </div>
                           </div>
                           <div className="text-xs font-mono text-red-700 dark:text-red-300 bg-gradient-to-r from-red-100/70 to-red-50/50 dark:from-red-900/70 dark:to-red-950/50 p-3 rounded-lg mb-3 border border-red-200/50 dark:border-red-800/30">
                             {resultadoProcessamento.naoEncontrados.map((mac, index) => (
