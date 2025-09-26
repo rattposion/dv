@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,18 @@ const DESTINOS = [
   { value: "outros", label: "Outros" },
 ];
 
+// Definindo interface para o equipamento selecionado
+interface SelectedEquipment {
+  id: string;
+  nome: string;
+  modelo: string;
+  mac?: string;
+  localizacao?: string;
+}
+
+// Definindo tipo para as variantes do Badge
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
+
 export default function Defeitos() {
   const [defeitos, setDefeitos] = useState<Defeito[]>([]);
   const [loading, setLoading] = useState(false);
@@ -69,7 +81,7 @@ export default function Defeitos() {
   const [filtroModelo, setFiltroModelo] = useState("");
   const [modeloSelecionado, setModeloSelecionado] = useState("");
   const [estoqueRecebimento, setEstoqueRecebimento] = useState<{[modelo: string]: number}>({});
-  const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
+  const [selectedEquipment, setSelectedEquipment] = useState<SelectedEquipment | null>(null);
   const [showMacConflict, setShowMacConflict] = useState(false);
   const [conflictingMac, setConflictingMac] = useState("");
   const [macsValidated, setMacsValidated] = useState(false);
@@ -83,6 +95,25 @@ export default function Defeitos() {
   const { funcionariosAprovados } = useFuncionario();
   const { equipamentos } = useEquipamento();
   const { handleDatabaseError } = useMacValidation();
+
+  const fetchDefeitos = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('defeitos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDefeitos(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar defeitos:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar registros de defeitos",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
   const [novoDefeito, setNovoDefeito] = useState({
     equipamento: "",
@@ -122,7 +153,7 @@ export default function Defeitos() {
   useEffect(() => {
     fetchDefeitos();
     fetchEstoqueRecebimento();
-  }, []);
+  }, [fetchDefeitos]);
 
   const fetchEstoqueRecebimento = async () => {
     try {
@@ -141,25 +172,6 @@ export default function Defeitos() {
       setEstoqueRecebimento(estoque);
     } catch (error) {
       console.error('Erro ao buscar estoque de recebimento:', error);
-    }
-  };
-
-  const fetchDefeitos = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('defeitos')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setDefeitos(data || []);
-    } catch (error) {
-      console.error('Erro ao buscar defeitos:', error);
-      toast({
-        title: "Erro",
-        description: "Falha ao carregar registros de defeitos",
-        variant: "destructive",
-      });
     }
   };
 
@@ -285,9 +297,25 @@ export default function Defeitos() {
       .reduce((total, d) => total + d.quantidade, 0);
   };
 
-  const getCorBadge = (tipo: string) => {
+  const getDefeitosPorModelo = (tipo: string) => {
+    const defeitosFiltrados = defeitos.filter(d => d.tipo_defeito === tipo);
+    const modelosMap = new Map<string, number>();
+    
+    defeitosFiltrados.forEach(defeito => {
+      const modelo = defeito.modelo;
+      const quantidadeAtual = modelosMap.get(modelo) || 0;
+      modelosMap.set(modelo, quantidadeAtual + defeito.quantidade);
+    });
+    
+    // Converter para array e ordenar por quantidade (maior para menor)
+    return Array.from(modelosMap.entries())
+      .map(([modelo, quantidade]) => ({ modelo, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade);
+  };
+
+  const getCorBadge = (tipo: string): BadgeVariant => {
     const tipoDefeito = TIPOS_DEFEITO.find(t => t.value === tipo);
-    return tipoDefeito?.color || "secondary";
+    return (tipoDefeito?.color || "secondary") as BadgeVariant;
   };
 
   const handleMacRemoved = (removedMac: string) => {
@@ -689,26 +717,61 @@ export default function Defeitos() {
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {TIPOS_DEFEITO.map((tipo) => (
-          <Card key={tipo.value} className="bg-gradient-subtle border-accent/20">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center">
-                  <AlertTriangle className="h-5 w-5 mr-2" />
-                  {tipo.label}
-                </span>
-                <Badge variant={getCorBadge(tipo.value) as any}>
-                  {getTotalPorTipo(tipo.value)}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-3">
-              <div className="text-xl sm:text-2xl font-bold text-primary">
-                {getTotalPorTipo(tipo.value)} unidades
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {TIPOS_DEFEITO.map((tipo) => {
+          const modelosDefeitos = getDefeitosPorModelo(tipo.value);
+          const totalTipo = getTotalPorTipo(tipo.value);
+          
+          return (
+            <Card key={tipo.value} className="bg-gradient-subtle border-accent/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <AlertTriangle className="h-5 w-5 mr-2" />
+                    {tipo.label}
+                  </span>
+                  <Badge variant={getCorBadge(tipo.value)}>
+                    {totalTipo}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-3">
+                <div className="text-xl sm:text-2xl font-bold text-primary mb-3">
+                  {totalTipo} unidades
+                </div>
+                
+                {/* Breakdown por modelo */}
+                {modelosDefeitos.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-muted-foreground">Por modelo:</div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {modelosDefeitos.slice(0, 5).map(({ modelo, quantidade }) => (
+                        <div key={modelo} className="flex justify-between items-center text-sm">
+                          <span className="truncate flex-1 mr-2" title={modelo}>
+                            {modelo}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {quantidade}
+                          </Badge>
+                        </div>
+                      ))}
+                      {modelosDefeitos.length > 5 && (
+                        <div className="text-xs text-muted-foreground text-center pt-1">
+                          +{modelosDefeitos.length - 5} outros modelos
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {modelosDefeitos.length === 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    Nenhum defeito registrado
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Filtros */}
@@ -783,7 +846,7 @@ export default function Defeitos() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                <Badge variant={getCorBadge(defeito.tipo_defeito) as any}>
+                <Badge variant={getCorBadge(defeito.tipo_defeito)}>
                   {TIPOS_DEFEITO.find(t => t.value === defeito.tipo_defeito)?.label}
                 </Badge>
                 {defeito.origem && (
