@@ -514,7 +514,7 @@ export default function Saida() {
                 // Verificação robusta do status
                 const linhaTrimmed = checkLine.trim();
                 if (linhaTrimmed === 'Estoque' || linhaTrimmed === 'Comodato' || linhaTrimmed === 'Usuário' || linhaTrimmed === 'Usuario' || 
-                    linhaTrimmed === 'RMA' || linhaTrimmed === 'Teste' || linhaTrimmed === 'Defeito') {
+                    linhaTrimmed === 'Rma' || linhaTrimmed === 'Teste' || linhaTrimmed === 'Defeito') {
                   statusEquipamento = linhaTrimmed === 'Usuario' ? 'Usuário' : linhaTrimmed; // Normalizar "Usuario" para "Usuário"
                   logger.debug(`Status encontrado: ${statusEquipamento}`);
                 }
@@ -524,7 +524,7 @@ export default function Saida() {
             }
             
             // Agrupamento com validação robusta
-            if (statusEquipamento === 'Estoque' || statusEquipamento === 'Usuário' || statusEquipamento === 'RMA' || statusEquipamento === 'Teste' || statusEquipamento === 'Defeito') {
+            if (statusEquipamento === 'Estoque' || statusEquipamento === 'Usuário' || statusEquipamento === 'Rma' || statusEquipamento === 'Teste' || statusEquipamento === 'Defeito') {
               try {
                 let chaveGrupo = '';
                 
@@ -532,8 +532,8 @@ export default function Saida() {
                   chaveGrupo = localEstoque || 'Local não identificado';
                 } else if (statusEquipamento === 'Usuário') {
                   chaveGrupo = 'Usuário';
-                } else if (statusEquipamento === 'RMA') {
-                  chaveGrupo = 'RMA';
+                } else if (statusEquipamento === 'Rma') {
+                  chaveGrupo = 'Rma';
                 } else if (statusEquipamento === 'Teste') {
                   chaveGrupo = 'Teste';
                 } else if (statusEquipamento === 'Defeito') {
@@ -1378,7 +1378,7 @@ export default function Saida() {
                             </div>
                             <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-950/30 px-3 py-2 rounded-lg border border-orange-200 dark:border-orange-800/50">
                               <div className="w-3 h-3 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full shadow-sm"></div>
-                              <span className="font-medium text-orange-800 dark:text-orange-200">RMA ({dadosEquipamentos.split('\n').filter(line => line.trim() === 'RMA').length})</span>
+                              <span className="font-medium text-orange-800 dark:text-orange-200">Rma ({dadosEquipamentos.split('\n').filter(line => line.trim() === 'Rma').length})</span>
                             </div>
                             <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-950/30 px-3 py-2 rounded-lg border border-yellow-200 dark:border-yellow-800/50">
                               <div className="w-3 h-3 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full shadow-sm"></div>
@@ -1421,7 +1421,7 @@ export default function Saida() {
                                     <span className="font-bold text-purple-800 dark:text-purple-200 bg-purple-100 dark:bg-purple-900/50 px-3 py-1.5 rounded-full text-xs tracking-wide">Usuário</span>
                                   </div>
                                 );
-                              } else if (trimmedLine === 'RMA') {
+                              } else if (trimmedLine === 'Rma') {
                                 return (
                                   <div key={index} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-orange-50 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-800/50 transition-all hover:shadow-md">
                                     <div className="w-3 h-3 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full shadow-sm"></div>
@@ -1930,8 +1930,8 @@ export default function Saida() {
                       {(() => {
                         const rmaEquipamentos: Array<{equipamento: string, mac: string, local: string, numeroSerie: string, outrasInfos: string[]}> = [];
                         
-                        if (resultadoProcessamento.grupos['RMA']) {
-                          for (const mac of resultadoProcessamento.grupos['RMA']) {
+                        if (resultadoProcessamento.grupos['Rma']) {
+                          for (const mac of resultadoProcessamento.grupos['Rma']) {
                             const linhasDados = dadosEquipamentos.split('\n');
                             let equipamentoInfo = '';
                             let local = '';
@@ -1969,7 +1969,7 @@ export default function Saida() {
                                       !infoLine.includes('LOCAL ESTOQUE:') && 
                                       !infoLine.includes('NÚMERO DE SÉRIE:') &&
                                       !infoLine.match(/^\(\d+\)/) && 
-                                      infoLine.trim() !== 'RMA' &&
+                                      infoLine.trim() !== 'Rma' &&
                                       infoLine.length > 0) {
                                     outrasInfos.push(infoLine);
                                   }
