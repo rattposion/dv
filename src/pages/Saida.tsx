@@ -202,159 +202,424 @@ export default function Saida() {
   };
 
   const processarComparacao = () => {
-    if (!macsParaVerificar.trim() || !dadosEquipamentos.trim()) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Preencha a lista de MACs e os dados dos equipamentos",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    console.log("=== INICIANDO PROCESSAMENTO ===");
-    
-    // Função para normalizar MAC (remove : e converte para minúsculo)
-    const normalizarMac = (mac: string) => mac.replace(/:/g, '').toLowerCase().trim();
-    
-    // Função para adicionar dois pontos ao MAC (formato AA:BB:CC:DD:EE:FF)
-    const formatarMacComDoisPontos = (mac: string) => {
-      const macLimpo = mac.replace(/:/g, '').toUpperCase();
-      if (macLimpo.length === 12) {
-        return macLimpo.match(/.{2}/g)?.join(':') || mac;
+    // Sistema de logs detalhados com níveis e timestamps
+    const logger = {
+      debug: (message: string, data?: any) => {
+        const timestamp = new Date().toISOString();
+        console.log(`[DEBUG ${timestamp}] ${message}`, data || '');
+      },
+      info: (message: string, data?: any) => {
+        const timestamp = new Date().toISOString();
+        console.info(`[INFO ${timestamp}] ${message}`, data || '');
+      },
+      warn: (message: string, data?: any) => {
+        const timestamp = new Date().toISOString();
+        console.warn(`[WARN ${timestamp}] ${message}`, data || '');
+      },
+      error: (message: string, error?: any) => {
+        const timestamp = new Date().toISOString();
+        console.error(`[ERROR ${timestamp}] ${message}`, error || '');
       }
-      return mac;
     };
 
-    // Pega a lista de MACs do campo de texto (aceita vírgulas e quebras de linha)
-    const macsLista = macsParaVerificar.split(/[\n,]/).map(mac => mac.trim()).filter(mac => mac);
-    console.log("MACs da lista:", macsLista);
-    console.log("Quantidade de MACs:", macsLista.length);
-    
-    // Normaliza os MACs da lista para comparação
-    const macsNormalizados = macsLista.map(normalizarMac);
-    console.log("MACs normalizados:", macsNormalizados);
-    
-    // Normaliza o texto dos dados dos equipamentos para busca
-    const dadosNormalizados = dadosEquipamentos.toLowerCase();
-    console.log("Tamanho dos dados:", dadosNormalizados.length);
-    
-    const grupos: { [key: string]: string[] } = {};
-    const naoEncontrados: string[] = [];
-
-
-    // Para cada MAC da lista, verifica se está nos dados dos equipamentos
-    macsLista.forEach((macOriginal, index) => {
-      const macNormalizado = macsNormalizados[index];
-      const macComDoisPontos = formatarMacComDoisPontos(macOriginal);
-      console.log(`\n--- Verificando MAC ${index + 1}/${macsLista.length}: ${macOriginal} ---`);
-      console.log(`MAC normalizado: ${macNormalizado}`);
-      console.log(`MAC com dois pontos: ${macComDoisPontos}`);
+    try {
+      logger.info("=== INICIANDO PROCESSAMENTO DE SEPARAÇÃO ===");
       
-      // Verifica se o MAC existe nos dados dos equipamentos em múltiplos formatos
-      const macEncontrado = dadosNormalizados.includes(macNormalizado) || 
-                           dadosNormalizados.includes(macOriginal.toLowerCase()) ||
-                           dadosNormalizados.includes(macOriginal.toUpperCase()) ||
-                           dadosNormalizados.includes(macComDoisPontos.toLowerCase()) ||
-                           dadosEquipamentos.includes(macOriginal) ||
-                           dadosEquipamentos.includes(macOriginal.toUpperCase()) ||
-                           dadosEquipamentos.includes(macComDoisPontos) ||
-                           dadosEquipamentos.includes(macComDoisPontos.toUpperCase()) ||
-                           dadosEquipamentos.includes(macComDoisPontos.toLowerCase());
-      console.log(`MAC encontrado nos dados: ${macEncontrado}`);
-      
-      if (macEncontrado) {
-        console.log("✅ MAC ENCONTRADO - processando localização...");
+      // Validação robusta de entrada
+      const validarEntrada = () => {
+        const errors: string[] = [];
         
-        // Extrair informações do local/grupo dos dados
-        const lines = dadosEquipamentos.split('\n');
-        let equipamentoInfo = '';
-        let localEstoque = '';
-        
-        // Buscar o MAC nos dados e extrair o contexto do equipamento
-        let statusEquipamento = '';
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].toLowerCase();
-          
-          // Se a linha contém o MAC (normalizado, original ou formatado com dois pontos)
-          if (line.includes(macNormalizado) || line.includes(macOriginal.toLowerCase()) || line.includes(macComDoisPontos.toLowerCase())) {
-            console.log(`MAC encontrado na linha ${i}: ${lines[i]}`);
-            
-            // Buscar informações do equipamento nas linhas próximas
-            for (let j = Math.max(0, i - 3); j < Math.min(lines.length, i + 4); j++) {
-              const checkLine = lines[j];
-              
-              // Extrair nome/ID do equipamento se a linha começar com parênteses
-              if (checkLine.match(/^\s*\([^)]+\)/)) {
-                const match = checkLine.match(/^\s*\(([^)]+)\)\s*(.+?)(?:\s+-\s+ID Próprio:|$)/);
-                if (match) {
-                  equipamentoInfo = `(${match[1]}) ${match[2].trim()}`;
-                  console.log(`Equipamento extraído: ${equipamentoInfo}`);
-                }
-              }
-              
-              // Extrair LOCAL ESTOQUE
-              if (checkLine.includes('LOCAL ESTOQUE:')) {
-                const localMatch = checkLine.match(/LOCAL ESTOQUE:\s*(.+?)(?:\s+NÚMERO|\s+EPI|\t|$)/);
-                if (localMatch) {
-                  localEstoque = localMatch[1].trim();
-                  console.log(`Local extraído: ${localEstoque}`);
-                }
-              }
-              
-              // Verificar status do equipamento (Estoque ou Comodato)
-              if (checkLine.trim() === 'Estoque' || checkLine.trim() === 'Comodato') {
-                statusEquipamento = checkLine.trim();
-                console.log(`Status encontrado: ${statusEquipamento}`);
-              }
-            }
-            break;
-          }
+        if (!macsParaVerificar || typeof macsParaVerificar !== 'string') {
+          errors.push("Lista de MACs é obrigatória e deve ser uma string válida");
+        } else if (!macsParaVerificar.trim()) {
+          errors.push("Lista de MACs não pode estar vazia");
         }
         
-        // Só adicionar à lista organizada por localização se o status for "Estoque"
-        if (statusEquipamento === 'Estoque') {
-          // Define a chave do grupo baseado apenas na localização
-          let chaveGrupo = '';
-          if (localEstoque) {
-            chaveGrupo = localEstoque;
-          } else {
-            chaveGrupo = 'Local não identificado';
-          }
-          
-          console.log(`Grupo definido para equipamento em estoque: ${chaveGrupo}`);
-          
-          if (!grupos[chaveGrupo]) {
-            grupos[chaveGrupo] = [];
-          }
-          grupos[chaveGrupo].push(macOriginal);
-        } else {
-          console.log(`Equipamento com status "${statusEquipamento}" não incluído na lista por localização`);
+        if (!dadosEquipamentos || typeof dadosEquipamentos !== 'string') {
+          errors.push("Dados dos equipamentos são obrigatórios e devem ser uma string válida");
+        } else if (!dadosEquipamentos.trim()) {
+          errors.push("Dados dos equipamentos não podem estar vazios");
+        } else if (dadosEquipamentos.length < 100) {
+          logger.warn("Dados dos equipamentos parecem muito pequenos", { tamanho: dadosEquipamentos.length });
         }
         
-      } else {
-        // MAC não foi encontrado nos dados dos equipamentos
-        console.log(`❌ MAC NÃO ENCONTRADO: ${macOriginal}`);
-        naoEncontrados.push(macOriginal);
+        return errors;
+      };
+
+      const errosValidacao = validarEntrada();
+      if (errosValidacao.length > 0) {
+        logger.error("Falha na validação de entrada", errosValidacao);
+        toast({
+          title: "Erro de validação",
+          description: errosValidacao.join('. '),
+          variant: "destructive",
+        });
+        return;
       }
-    });
 
-    console.log("=== RESULTADO FINAL ===");
-    console.log("Grupos encontrados:", Object.keys(grupos).length);
-    console.log("Grupos:", grupos);
-    console.log("MACs não encontrados:", naoEncontrados.length);
-    console.log("Lista não encontrados:", naoEncontrados);
-
-    setResultadoProcessamento({ grupos, naoEncontrados });
-    
-    const totalEncontrados = Object.values(grupos).reduce((acc, arr) => acc + arr.length, 0);
-    const statusMsg = tipoSelecaoMac === "caixa" && caixaSeparacaoSelecionada
-      ? `${totalEncontrados} de ${macsLista.length} MACs encontrados (da caixa ${caixaSeparacaoSelecionada.id})`
-      : `${totalEncontrados} de ${macsLista.length} MACs encontrados`;
+      logger.info("Validação de entrada concluída com sucesso");
       
-    toast({
-      title: "Processamento concluído",
-      description: statusMsg,
-    });
+      // Função para normalizar MAC (remove caracteres especiais e converte para minúsculo)
+      const normalizarMac = (mac: string): string => {
+        try {
+          if (!mac || typeof mac !== 'string') {
+            throw new Error(`MAC inválido: ${mac}`);
+          }
+          return mac.replace(/[:\-\s]/g, '').toLowerCase().trim();
+        } catch (error) {
+          logger.error("Erro ao normalizar MAC", { mac, error });
+          return '';
+        }
+      };
+      
+      // Função para formatar MAC com dois pontos (formato AA:BB:CC:DD:EE:FF)
+      const formatarMacComDoisPontos = (mac: string): string => {
+        try {
+          const macLimpo = mac.replace(/[:\-\s]/g, '').toUpperCase();
+          if (macLimpo.length === 12 && /^[0-9A-F]{12}$/.test(macLimpo)) {
+            return macLimpo.match(/.{2}/g)?.join(':') || mac;
+          }
+          return mac;
+        } catch (error) {
+          logger.error("Erro ao formatar MAC", { mac, error });
+          return mac;
+        }
+      };
+
+      // Função para validar formato MAC com validações robustas
+      const isValidMac = (mac: string): boolean => {
+        try {
+          if (!mac || typeof mac !== 'string') return false;
+          
+          const macLimpo = mac.replace(/[:\-\s]/g, '');
+          
+          // Verificações básicas
+          if (macLimpo.length !== 12) return false;
+          if (!/^[0-9A-Fa-f]{12}$/.test(macLimpo)) return false;
+          
+          // Verificações de edge cases
+          const macUpper = macLimpo.toUpperCase();
+          if (macUpper === '000000000000') return false; // MAC nulo
+          if (macUpper === 'FFFFFFFFFFFF') return false; // MAC broadcast
+          if (/^(.)\1{11}$/.test(macUpper)) return false; // Todos os dígitos iguais
+          
+          return true;
+        } catch (error) {
+          logger.error("Erro na validação de MAC", { mac, error });
+          return false;
+        }
+      };
+
+      // Processamento otimizado da lista de MACs
+      logger.info("Iniciando processamento da lista de MACs");
+      
+      let macsListaRaw: string[] = [];
+      try {
+        // Suporte a múltiplos separadores e limpeza robusta
+        macsListaRaw = macsParaVerificar
+          .split(/[\n,;|\t]/)
+          .map(mac => mac.trim())
+          .filter(mac => mac && mac.length > 0);
+        
+        logger.info(`MACs extraídos da entrada: ${macsListaRaw.length}`);
+      } catch (error) {
+        logger.error("Erro ao processar lista de MACs", error);
+        throw new Error("Falha ao processar a lista de MACs");
+      }
+      
+      // Validação e filtro de MACs inválidos com recovery
+      const macsInvalidos: string[] = [];
+      const macsValidos: string[] = [];
+      
+      macsListaRaw.forEach((mac, index) => {
+        try {
+          if (isValidMac(mac)) {
+            macsValidos.push(mac);
+          } else {
+            macsInvalidos.push(mac);
+            logger.warn(`MAC inválido encontrado na posição ${index}`, { mac });
+          }
+        } catch (error) {
+          logger.error(`Erro ao validar MAC na posição ${index}`, { mac, error });
+          macsInvalidos.push(mac);
+        }
+      });
+
+      if (macsInvalidos.length > 0) {
+        logger.warn(`${macsInvalidos.length} MACs inválidos encontrados`, macsInvalidos.slice(0, 5));
+        toast({
+          title: "MACs inválidos encontrados",
+          description: `${macsInvalidos.length} MAC(s) com formato inválido foram ignorados: ${macsInvalidos.slice(0, 3).join(', ')}${macsInvalidos.length > 3 ? '...' : ''}`,
+          variant: "destructive",
+        });
+      }
+
+      if (macsValidos.length === 0) {
+        logger.error("Nenhum MAC válido encontrado na lista");
+        toast({
+          title: "Erro",
+          description: "Nenhum MAC válido foi encontrado na lista fornecida",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Otimização: Remoção de duplicatas com indexação eficiente
+      logger.info("Removendo MACs duplicados");
+      const macsUnicos: string[] = [];
+      const macsDuplicados: string[] = [];
+      const macsNormalizadosMap = new Map<string, string>(); // normalizado -> original
+
+      macsValidos.forEach(mac => {
+        try {
+          const macNormalizado = normalizarMac(mac);
+          if (macsNormalizadosMap.has(macNormalizado)) {
+            macsDuplicados.push(mac);
+            logger.debug(`MAC duplicado encontrado: ${mac} (normalizado: ${macNormalizado})`);
+          } else {
+            macsNormalizadosMap.set(macNormalizado, mac);
+            macsUnicos.push(mac);
+          }
+        } catch (error) {
+          logger.error("Erro ao processar duplicatas", { mac, error });
+          macsDuplicados.push(mac);
+        }
+      });
+
+      if (macsDuplicados.length > 0) {
+        logger.warn(`${macsDuplicados.length} MACs duplicados removidos`, macsDuplicados.slice(0, 5));
+        toast({
+          title: "MACs duplicados removidos",
+          description: `${macsDuplicados.length} MAC(s) duplicado(s) foram removidos da lista`,
+          variant: "destructive",
+        });
+      }
+
+      logger.info(`Processamento de MACs concluído: ${macsUnicos.length} únicos de ${macsListaRaw.length} originais`);
+      
+      // Otimização: Preparação eficiente dos dados dos equipamentos
+      logger.info("Preparando dados dos equipamentos para busca otimizada");
+      let linhasDados: string[] = [];
+      let indiceLinhas: Map<string, number[]> = new Map(); // MAC normalizado -> array de índices de linhas
+      
+      try {
+        linhasDados = dadosEquipamentos.split('\n');
+        logger.info(`Total de linhas nos dados: ${linhasDados.length}`);
+        
+        // Criar índice para busca otimizada (apenas para grandes volumes)
+        if (linhasDados.length > 1000 && macsUnicos.length > 50) {
+          logger.info("Criando índice de busca para otimização de performance");
+          
+          linhasDados.forEach((linha, index) => {
+            const linhaLower = linha.toLowerCase();
+            // Buscar possíveis MACs na linha usando regex
+            const macMatches = linhaLower.match(/[0-9a-f]{12}|[0-9a-f]{2}[:\-][0-9a-f]{2}[:\-][0-9a-f]{2}[:\-][0-9a-f]{2}[:\-][0-9a-f]{2}[:\-][0-9a-f]{2}/g);
+            
+            if (macMatches) {
+              macMatches.forEach(match => {
+                const macNormalizado = match.replace(/[:\-]/g, '');
+                if (!indiceLinhas.has(macNormalizado)) {
+                  indiceLinhas.set(macNormalizado, []);
+                }
+                indiceLinhas.get(macNormalizado)!.push(index);
+              });
+            }
+          });
+          
+          logger.info(`Índice criado com ${indiceLinhas.size} entradas`);
+        }
+      } catch (error) {
+        logger.error("Erro ao preparar dados dos equipamentos", error);
+        throw new Error("Falha ao processar dados dos equipamentos");
+      }
+      
+      const grupos: { [key: string]: string[] } = {};
+      const naoEncontrados: string[] = [];
+      const tempoInicio = performance.now();
+
+      // Processamento otimizado de cada MAC
+      logger.info("Iniciando busca de MACs nos dados dos equipamentos");
+      
+      for (let index = 0; index < macsUnicos.length; index++) {
+        const macOriginal = macsUnicos[index];
+        
+        try {
+          const macNormalizado = normalizarMac(macOriginal);
+          const macComDoisPontos = formatarMacComDoisPontos(macOriginal);
+          
+          logger.debug(`Processando MAC ${index + 1}/${macsUnicos.length}: ${macOriginal}`);
+          
+          // Busca otimizada usando índice quando disponível
+          let linhasParaBuscar: number[] = [];
+          
+          if (indiceLinhas.size > 0) {
+            // Usar índice para busca rápida
+            const linhasIndexadas = indiceLinhas.get(macNormalizado) || [];
+            linhasParaBuscar = linhasIndexadas;
+            logger.debug(`Usando índice: ${linhasIndexadas.length} linhas para verificar`);
+          } else {
+            // Busca sequencial para volumes menores
+            linhasParaBuscar = Array.from({ length: linhasDados.length }, (_, i) => i);
+          }
+          
+          let linhaEncontrada = -1;
+          let melhorMatch = '';
+          
+          // Buscar nas linhas selecionadas
+          for (const i of linhasParaBuscar) {
+            if (i >= linhasDados.length) continue;
+            
+            const linha = linhasDados[i];
+            const linhaLower = linha.toLowerCase();
+            
+            // Verificação otimizada de múltiplos formatos
+            const contemMac = linhaLower.includes(macNormalizado) || 
+                             linhaLower.includes(macOriginal.toLowerCase()) ||
+                             linhaLower.includes(macComDoisPontos.toLowerCase()) ||
+                             linha.includes(macOriginal) ||
+                             linha.includes(macOriginal.toUpperCase()) ||
+                             linha.includes(macComDoisPontos);
+            
+            if (contemMac) {
+              linhaEncontrada = i;
+              melhorMatch = linha;
+              logger.debug(`MAC encontrado na linha ${i}: ${linha.substring(0, 100)}...`);
+              break;
+            }
+          }
+          
+          if (linhaEncontrada !== -1) {
+            // Processamento da localização com tratamento de erros
+            let localEstoque = '';
+            let statusEquipamento = '';
+            
+            try {
+              // Range otimizado para busca de contexto
+              const inicioRange = Math.max(0, linhaEncontrada - 5);
+              const fimRange = Math.min(linhasDados.length, linhaEncontrada + 3);
+              
+              for (let j = inicioRange; j < fimRange; j++) {
+                const checkLine = linhasDados[j];
+                const checkLineLower = checkLine.toLowerCase();
+                
+                // Extração robusta do LOCAL ESTOQUE
+                if (checkLineLower.includes('local estoque:')) {
+                  const localMatch = checkLine.match(/local\s+estoque:\s*([^\t\n\r]+?)(?:\s+(?:número|epi|id próprio)|\t|$)/i);
+                  if (localMatch && localMatch[1]) {
+                    localEstoque = localMatch[1].trim();
+                    logger.debug(`Local extraído: ${localEstoque}`);
+                  }
+                }
+                
+                // Verificação robusta do status
+                const linhaTrimmed = checkLine.trim();
+                if (linhaTrimmed === 'Estoque' || linhaTrimmed === 'Comodato') {
+                  statusEquipamento = linhaTrimmed;
+                  logger.debug(`Status encontrado: ${statusEquipamento}`);
+                }
+              }
+            } catch (error) {
+              logger.error("Erro ao extrair informações do equipamento", { macOriginal, error });
+            }
+            
+            // Agrupamento com validação robusta
+            if (statusEquipamento === 'Estoque') {
+              try {
+                let chaveGrupo = localEstoque || 'Local não identificado';
+                chaveGrupo = chaveGrupo.replace(/\s+/g, ' ').trim();
+                
+                if (!grupos[chaveGrupo]) {
+                  grupos[chaveGrupo] = [];
+                }
+                
+                // Prevenção de duplicatas no grupo
+                if (!grupos[chaveGrupo].includes(macOriginal)) {
+                  grupos[chaveGrupo].push(macOriginal);
+                  logger.debug(`MAC adicionado ao grupo "${chaveGrupo}"`);
+                } else {
+                  logger.warn(`MAC duplicado no grupo ignorado: ${macOriginal} em ${chaveGrupo}`);
+                }
+              } catch (error) {
+                logger.error("Erro ao agrupar MAC", { macOriginal, error });
+                naoEncontrados.push(macOriginal);
+              }
+            } else {
+              logger.debug(`MAC não está em estoque (status: ${statusEquipamento}): ${macOriginal}`);
+              naoEncontrados.push(macOriginal);
+            }
+            
+          } else {
+            logger.debug(`MAC não encontrado nos dados: ${macOriginal}`);
+            naoEncontrados.push(macOriginal);
+          }
+          
+          // Log de progresso para grandes volumes
+          if (macsUnicos.length > 100 && (index + 1) % 50 === 0) {
+            logger.info(`Progresso: ${index + 1}/${macsUnicos.length} MACs processados`);
+          }
+          
+        } catch (error) {
+          logger.error(`Erro ao processar MAC: ${macOriginal}`, error);
+          naoEncontrados.push(macOriginal);
+        }
+      }
+
+      const tempoFinal = performance.now();
+      const tempoProcessamento = Math.round(tempoFinal - tempoInicio);
+      
+      logger.info("=== RESULTADO FINAL ===");
+      logger.info(`Tempo de processamento: ${tempoProcessamento}ms`);
+      logger.info(`Grupos encontrados: ${Object.keys(grupos).length}`);
+      logger.info(`MACs em estoque: ${Object.values(grupos).reduce((acc, arr) => acc + arr.length, 0)}`);
+      logger.info(`MACs não encontrados: ${naoEncontrados.length}`);
+      
+      // Performance metrics para otimização futura
+      if (tempoProcessamento > 5000) {
+        logger.warn("Processamento demorado detectado", {
+          tempo: tempoProcessamento,
+          totalMACs: macsUnicos.length,
+          totalLinhas: linhasDados.length
+        });
+      }
+
+      setResultadoProcessamento({ grupos, naoEncontrados });
+      
+      const totalEncontrados = Object.values(grupos).reduce((acc, arr) => acc + arr.length, 0);
+      const totalProcessados = macsUnicos.length;
+      const statusMsg = tipoSelecaoMac === "caixa" && caixaSeparacaoSelecionada
+        ? `${totalEncontrados} de ${totalProcessados} MACs encontrados em estoque (da caixa ${caixaSeparacaoSelecionada.id}) - ${tempoProcessamento}ms`
+        : `${totalEncontrados} de ${totalProcessados} MACs encontrados em estoque - ${tempoProcessamento}ms`;
+        
+      toast({
+        title: "Processamento concluído",
+        description: statusMsg,
+      });
+      
+      logger.info("Processamento de separação concluído com sucesso");
+      
+    } catch (error) {
+      logger.error("Erro crítico no processamento", error);
+      
+      // Recovery automático - tentar salvar o que foi processado
+      try {
+        if (typeof error === 'object' && error !== null && 'message' in error) {
+          toast({
+            title: "Erro no processamento",
+            description: `Falha durante o processamento: ${(error as Error).message}. Verifique os dados e tente novamente.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Erro no processamento",
+            description: "Ocorreu um erro inesperado. Verifique os dados de entrada e tente novamente.",
+            variant: "destructive",
+          });
+        }
+      } catch (recoveryError) {
+        logger.error("Falha no recovery automático", recoveryError);
+        console.error("Erro crítico sem recovery possível:", error);
+      }
+    }
   };
 
   // Função para gerar CSV dos equipamentos não encontrados
