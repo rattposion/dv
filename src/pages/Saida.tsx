@@ -513,8 +513,8 @@ export default function Saida() {
                 
                 // Verificação robusta do status
                 const linhaTrimmed = checkLine.trim();
-                if (linhaTrimmed === 'Estoque' || linhaTrimmed === 'Comodato') {
-                  statusEquipamento = linhaTrimmed;
+                if (linhaTrimmed === 'Estoque' || linhaTrimmed === 'Comodato' || linhaTrimmed === 'Usuário' || linhaTrimmed === 'Usuario') {
+                  statusEquipamento = linhaTrimmed === 'Usuario' ? 'Usuário' : linhaTrimmed; // Normalizar "Usuario" para "Usuário"
                   logger.debug(`Status encontrado: ${statusEquipamento}`);
                 }
               }
@@ -523,9 +523,16 @@ export default function Saida() {
             }
             
             // Agrupamento com validação robusta
-            if (statusEquipamento === 'Estoque') {
+            if (statusEquipamento === 'Estoque' || statusEquipamento === 'Usuário') {
               try {
-                let chaveGrupo = localEstoque || 'Local não identificado';
+                let chaveGrupo = '';
+                
+                if (statusEquipamento === 'Estoque') {
+                  chaveGrupo = localEstoque || 'Local não identificado';
+                } else if (statusEquipamento === 'Usuário') {
+                  chaveGrupo = 'Usuário';
+                }
+                
                 chaveGrupo = chaveGrupo.replace(/\s+/g, ' ').trim();
                 
                 if (!grupos[chaveGrupo]) {
@@ -535,7 +542,7 @@ export default function Saida() {
                 // Prevenção de duplicatas no grupo
                 if (!grupos[chaveGrupo].includes(macOriginal)) {
                   grupos[chaveGrupo].push(macOriginal);
-                  logger.debug(`MAC adicionado ao grupo "${chaveGrupo}"`);
+                  logger.debug(`MAC adicionado ao grupo "${chaveGrupo}" (status: ${statusEquipamento})`);
                 } else {
                   logger.warn(`MAC duplicado no grupo ignorado: ${macOriginal} em ${chaveGrupo}`);
                 }
@@ -544,7 +551,7 @@ export default function Saida() {
                 naoEncontrados.push(macOriginal);
               }
             } else {
-              logger.debug(`MAC não está em estoque (status: ${statusEquipamento}): ${macOriginal}`);
+              logger.debug(`MAC não processado (status: ${statusEquipamento}): ${macOriginal}`);
               naoEncontrados.push(macOriginal);
             }
             
@@ -1349,7 +1356,7 @@ export default function Saida() {
                             <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
                             Resumo dos Status:
                           </div>
-                          <div className="flex gap-6 text-sm">
+                          <div className="flex gap-6 text-sm flex-wrap">
                             <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 px-3 py-2 rounded-lg border border-green-200 dark:border-green-800/50">
                               <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-sm"></div>
                               <span className="font-medium text-green-800 dark:text-green-200">Estoque ({dadosEquipamentos.split('\n').filter(line => line.trim() === 'Estoque').length})</span>
@@ -1357,6 +1364,10 @@ export default function Saida() {
                             <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800/50">
                               <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-sm"></div>
                               <span className="font-medium text-blue-800 dark:text-blue-200">Comodato ({dadosEquipamentos.split('\n').filter(line => line.trim() === 'Comodato').length})</span>
+                            </div>
+                            <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-950/30 px-3 py-2 rounded-lg border border-purple-200 dark:border-purple-800/50">
+                              <div className="w-3 h-3 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full shadow-sm"></div>
+                              <span className="font-medium text-purple-800 dark:text-purple-200">Usuário ({dadosEquipamentos.split('\n').filter(line => line.trim() === 'Usuário' || line.trim() === 'Usuario').length})</span>
                             </div>
                           </div>
                         </div>
@@ -1382,6 +1393,13 @@ export default function Saida() {
                                   <div key={index} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 transition-all hover:shadow-md">
                                     <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-sm"></div>
                                     <span className="font-bold text-blue-800 dark:text-blue-200 bg-blue-100 dark:bg-blue-900/50 px-3 py-1.5 rounded-full text-xs tracking-wide">{line}</span>
+                                  </div>
+                                );
+                              } else if (trimmedLine === 'Usuário' || trimmedLine === 'Usuario') {
+                                return (
+                                  <div key={index} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/50 transition-all hover:shadow-md">
+                                    <div className="w-3 h-3 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full shadow-sm"></div>
+                                    <span className="font-bold text-purple-800 dark:text-purple-200 bg-purple-100 dark:bg-purple-900/50 px-3 py-1.5 rounded-full text-xs tracking-wide">Usuário</span>
                                   </div>
                                 );
                               } else if (trimmedLine) {
@@ -1661,6 +1679,207 @@ export default function Saida() {
                                })}
                                <div className="text-sm font-semibold text-green-600 dark:text-green-400 bg-green-100/30 dark:bg-green-900/30 px-3 py-1.5 rounded-full inline-block">
                                  {comodatoEquipamentos.filter(item => item.mac && item.mac !== 'N/A').length} MAC(s)
+                               </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Equipamentos com Usuário - similar ao Comodato */}
+                      {dadosEquipamentos && (() => {
+                        const lines = dadosEquipamentos.split('\n');
+                        const usuarioEquipamentos = [];
+                        
+                        // Verificar se há equipamentos com status Usuário
+                        const hasUsuario = lines.some(line => line.trim() === 'Usuário' || line.trim() === 'Usuario' || line.includes('Usuário') || line.includes('Usuario'));
+                        
+                        if (!hasUsuario) {
+                          return null;
+                        }
+                        
+                        for (let i = 0; i < lines.length; i++) {
+                          if (lines[i].trim() === 'Usuário' || lines[i].trim() === 'Usuario' || lines[i].includes('Usuário') || lines[i].includes('Usuario')) {
+                             // Buscar informações do equipamento nas linhas anteriores e posteriores
+                             let equipamentoInfo = '';
+                             
+                             // Buscar linha do equipamento (anterior com número)
+                             for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+                               if (lines[k].match(/^\(\d+\)/)) {
+                                 equipamentoInfo = lines[k];
+                                 break;
+                               }
+                             }
+                             
+                             // Buscar informações adicionais em um contexto mais amplo
+                              let mac = '';
+                              let local = '';
+                              let numeroSerie = '';
+                              let outrasInfos = [];
+                              
+                              // Buscar informações tanto nas linhas anteriores quanto posteriores
+                              const searchStart = Math.max(0, i - 5);
+                              const searchEnd = Math.min(lines.length, i + 25);
+                              
+                              for (let j = searchStart; j < searchEnd; j++) {
+                                const infoLine = lines[j].trim();
+                                
+                                // Pular a linha atual do Usuário
+                                if (j === i) continue;
+                                
+                                // Para quando encontrar outro equipamento
+                                if (j > i && infoLine.match(/^\(\d+\)/) && j !== i + 1) {
+                                  break;
+                                }
+                                
+                                // Buscar MAC com diferentes padrões
+                                if (infoLine.includes('MAC:')) {
+                                  const macMatch = infoLine.match(/MAC:\s*([A-Fa-f0-9:.-]+)/);
+                                  if (macMatch) {
+                                    mac = macMatch[1];
+                                  }
+                                } else if (!mac && infoLine.match(/^[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}$/)) {
+                                  // MAC sem prefixo no formato XX:XX:XX:XX:XX:XX
+                                  mac = infoLine;
+                                }
+                                
+                                // Buscar LOCAL ESTOQUE
+                                if (infoLine.includes('LOCAL ESTOQUE:')) {
+                                  const localMatch = infoLine.match(/LOCAL ESTOQUE:\s*(.+?)(?:\s+NÚMERO|\s+MAC|\t|$)/);
+                                  if (localMatch) {
+                                    local = localMatch[1].trim();
+                                  }
+                                }
+                                
+                                // Buscar NÚMERO DE SÉRIE
+                                if (infoLine.includes('NÚMERO DE SÉRIE:')) {
+                                  const serieMatch = infoLine.match(/NÚMERO DE SÉRIE:\s*(.+?)(?:\s+MAC|\s+LOCAL|\t|$)/);
+                                  if (serieMatch) {
+                                    numeroSerie = serieMatch[1].trim();
+                                  }
+                                }
+                               
+                               // Capturar outras informações que não sejam vazias e não sejam status
+                               if (infoLine && 
+                                   !infoLine.includes('MAC:') && 
+                                   !infoLine.includes('LOCAL ESTOQUE:') && 
+                                   !infoLine.includes('NÚMERO DE SÉRIE:') &&
+                                   !infoLine.match(/^\(\d+\)/) && 
+                                   infoLine.trim() !== 'Estoque' && 
+                                   infoLine.trim() !== 'Comodato' &&
+                                   infoLine.trim() !== 'Usuário' &&
+                                   infoLine.trim() !== 'Usuario' &&
+                                   infoLine.length > 0) {
+                                 outrasInfos.push(infoLine);
+                               }
+                             }
+                             
+                             // Sempre adicionar o equipamento, mesmo que algumas informações estejam faltando
+                             usuarioEquipamentos.push({ 
+                               equipamento: equipamentoInfo || 'Equipamento com Usuário', 
+                               mac: mac || 'N/A', 
+                               local: local || 'N/A', 
+                               numeroSerie: numeroSerie || 'N/A',
+                               outrasInfos 
+                             });
+                          }
+                        }
+                        
+                        if (usuarioEquipamentos.length === 0) {
+                          return null;
+                        }
+                        
+                        return (
+                          <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-950/70 dark:to-purple-900/50 border border-purple-200 dark:border-purple-800/50 rounded-xl shadow-md hover:shadow-lg transition-all duration-300">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-bold text-lg text-purple-800 dark:text-purple-200 flex items-center gap-2">
+                                <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full"></div>
+                                👤 Equipamentos com Usuário
+                              </h4>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900 hover:scale-105 transition-all duration-200 shadow-sm"
+                                onClick={() => {
+                                  const usuarioMacs = usuarioEquipamentos
+                                    .filter(item => item.mac && item.mac !== 'N/A')
+                                    .map(item => item.mac.replace(/:/g, ''))
+                                    .join(',');
+                                  
+                                  navigator.clipboard.writeText(usuarioMacs);
+                                  toast({
+                                    title: "Lista copiada",
+                                    description: `MACs de Usuário copiados para a área de transferência`,
+                                  });
+                                }}
+                              >
+                                Copiar
+                              </Button>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              {usuarioEquipamentos.map((item, index) => {
+                                 // Extrair informações detalhadas do equipamento
+                                 const equipamentoMatch = item.equipamento ? item.equipamento.match(/\((\d+)\)\s*(.+)/) : null;
+                                 const numeroEquipamento = equipamentoMatch ? equipamentoMatch[1] : '';
+                                 const modeloEquipamento = equipamentoMatch ? equipamentoMatch[2] : item.equipamento || 'Equipamento';
+                                 
+                                 return (
+                                    <div key={index} className="p-3 bg-gradient-to-r from-purple-100/70 to-purple-50/50 dark:from-purple-900/70 dark:to-purple-950/50 border border-purple-200/50 dark:border-purple-800/30 rounded-lg font-mono text-sm">
+                                      <div className="text-purple-800 dark:text-purple-200 font-semibold mb-1 bg-gradient-to-r from-purple-200 to-purple-300 dark:from-purple-600 dark:to-purple-700 px-2 py-1 rounded-md border border-purple-400 dark:border-purple-500 shadow-sm">
+                                        👤 Usuário
+                                      </div>
+                                      {numeroEquipamento && (
+                                        <div className="text-purple-700 dark:text-purple-300 mb-1">
+                                          ({numeroEquipamento}) {modeloEquipamento}
+                                        </div>
+                                      )}
+                                      {item.local && item.local !== 'N/A' && (
+                                        <div className="text-purple-600 dark:text-purple-400 mb-1">
+                                          LOCAL ESTOQUE: {item.local}
+                                        </div>
+                                      )}
+                                      {item.numeroSerie && item.numeroSerie !== 'N/A' && (
+                                        <div className="text-purple-600 dark:text-purple-400 mb-1">
+                                          NÚMERO DE SÉRIE: {item.numeroSerie}
+                                        </div>
+                                      )}
+                                      {item.outrasInfos && item.outrasInfos.length > 0 && (
+                                        item.outrasInfos.filter(info => 
+                                          !info.includes('VALOR VENDA:') && 
+                                          !info.includes('RECONDICIONADO:') && 
+                                          !info.includes('TIPO:') && 
+                                          !info.includes('OBSERVAÇÕES:')
+                                        ).map((info, infoIndex) => (
+                                          <div key={infoIndex} className="text-purple-600 dark:text-purple-400 mb-1">
+                                            {info}
+                                          </div>
+                                        ))
+                                      )}
+                                      {item.mac && item.mac !== 'N/A' && (
+                                        <div className="text-purple-700 dark:text-purple-300 flex items-center justify-between">
+                                          <span>MAC: {item.mac}</span>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm"
+                                            className="text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900 hover:scale-105 transition-all duration-200 shadow-sm h-6 px-2"
+                                            onClick={() => {
+                                              const macSemDoisPontos = item.mac.replace(/:/g, '');
+                                              navigator.clipboard.writeText(macSemDoisPontos);
+                                              toast({
+                                                title: "Lista copiada",
+                                                description: `MAC ${macSemDoisPontos} copiado para a área de transferência`,
+                                              });
+                                            }}
+                                          >
+                                            Copiar
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                               })}
+                               <div className="text-sm font-semibold text-purple-600 dark:text-purple-400 bg-purple-100/30 dark:bg-purple-900/30 px-3 py-1.5 rounded-full inline-block">
+                                 {usuarioEquipamentos.filter(item => item.mac && item.mac !== 'N/A').length} MAC(s)
                                </div>
                             </div>
                           </div>
