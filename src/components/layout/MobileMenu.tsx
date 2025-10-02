@@ -10,7 +10,11 @@ import {
   PackageOpen,
   AlertTriangle,
   Menu,
-  X
+  X,
+  CheckSquare,
+  RotateCcw,
+  RefreshCw,
+  History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -25,10 +29,15 @@ const menuItems = [
   { icon: Package, label: "Inventário", path: "/inventario" },
   { icon: PackageOpen, label: "Recebimentos", path: "/recebimentos" },
   { icon: AlertTriangle, label: "Queimados/Defeitos", path: "/defeitos" },
+  { icon: RefreshCw, label: "Recuperação", path: "/recuperacao" },
   { icon: Truck, label: "Registrar Saída", path: "/saida" },
   { icon: Factory, label: "Produção", path: "/producao" },
   { icon: Settings, label: "Manutenções", path: "/manutencoes" },
+  { icon: RotateCcw, label: "RMA", path: "/rma" },
+  { icon: CheckSquare, label: "Checklist", path: "/checklist" },
+  { icon: History, label: "Histórico Checklist", path: "/checklist-history" },
   { icon: BarChart3, label: "Relatórios", path: "/relatorios" },
+  { icon: Settings, label: "Status", path: "/status" },
 ];
 
 export function MobileMenu() {

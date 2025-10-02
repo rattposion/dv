@@ -12,7 +12,9 @@ import {
   PackageOpen,
   AlertTriangle,
   RotateCcw,
-  RefreshCw
+  RefreshCw,
+  CheckSquare,
+  History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,6 +33,8 @@ const menuItems = [
   { icon: Factory, label: "Produção", path: "/producao" },
   { icon: Settings, label: "Manutenções", path: "/manutencoes" },
   { icon: RotateCcw, label: "RMA", path: "/rma" },
+  { icon: CheckSquare, label: "Checklist", path: "/checklist" },
+  { icon: History, label: "Histórico Checklist", path: "/checklist-history" },
   { icon: BarChart3, label: "Relatórios", path: "/relatorios" },
   { icon: Settings, label: "Status", path: "/status" },
 ];
