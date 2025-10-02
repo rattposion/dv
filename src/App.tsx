@@ -25,8 +25,10 @@ import Recebimentos from "./pages/Recebimentos";
 import Defeitos from "./pages/Defeitos";
 import Recuperacao from "./pages/Recuperacao";
 import RMA from "./pages/RMA";
+import Checklist from "./pages/Checklist";
 import Status from "./pages/Status";
 import Auth from "./pages/Auth";
+import ChecklistHistory from "./pages/ChecklistHistory";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +60,8 @@ const App = () => (
                           <Route path="/producao" element={<Producao />} />
                           <Route path="/manutencoes" element={<Manutencoes />} />
                           <Route path="/rma" element={<RMA />} />
+                          <Route path="/checklist" element={<Checklist />} />
+                          <Route path="/checklist-history" element={<ChecklistHistory />} />
                           <Route path="/status" element={<Status />} />
                           <Route path="/relatorios" element={<Relatorios />} />
                           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
