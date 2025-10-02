@@ -334,6 +334,9 @@ const Checklist: React.FC = () => {
       // Metadados
       usuario_criacao: dadosTecnico.nomeTecnico,
       usuario_ultima_alteracao: dadosTecnico.nomeTecnico,
+      ip_criacao: null,
+      user_agent: navigator.userAgent,
+      versao_app: '1.0.0',
     };
   }, [dadosTecnico, dadosEquipamento, testeWiFi, testePortasLAN, testeLogin, medicaoSinal, testeVelocidade, observacaoFinal]);
 
