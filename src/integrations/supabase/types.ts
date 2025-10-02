@@ -56,6 +56,141 @@ export type Database = {
         }
         Relationships: []
       }
+      checklists: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          nome_tecnico: string
+          data_atendimento: string
+          data_hora: string
+          tipo_equipamento: string
+          marca: string
+          modelo: string
+          endereco_ip: unknown | null
+          mac_address: string | null
+          sn_gpon: string | null
+          wifi_teste_realizado: boolean
+          wifi_resultado: string | null
+          wifi_observacoes: string | null
+          lan_teste_realizado: boolean
+          lan_resultado: string | null
+          lan_observacoes: string | null
+          login_teste_realizado: boolean
+          login_resultado: string | null
+          login_observacoes: string | null
+          medicao_teste_realizado: boolean
+          medicao_resultado: string | null
+          medicao_frequencia_testada: string | null
+          medicao_potencia_recebida: number | null
+          medicao_observacoes: string | null
+          velocidade_teste_realizado: boolean
+          velocidade_resultado: string | null
+          velocidade_download: number | null
+          velocidade_upload: number | null
+          velocidade_observacoes: string | null
+          dados_teste_realizado: boolean
+          dados_resultado: string | null
+          dados_observacoes: string | null
+          observacoes_finais: string | null
+          status_geral: string
+          progresso_percentual: number
+          usuario_criacao: string | null
+          usuario_ultima_alteracao: string | null
+          ip_criacao: unknown | null
+          user_agent: string | null
+          versao_app: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          nome_tecnico: string
+          data_atendimento: string
+          data_hora: string
+          tipo_equipamento: string
+          marca: string
+          modelo: string
+          endereco_ip?: unknown | null
+          mac_address?: string | null
+          sn_gpon?: string | null
+          wifi_teste_realizado?: boolean
+          wifi_resultado?: string | null
+          wifi_observacoes?: string | null
+          lan_teste_realizado?: boolean
+          lan_resultado?: string | null
+          lan_observacoes?: string | null
+          login_teste_realizado?: boolean
+          login_resultado?: string | null
+          login_observacoes?: string | null
+          medicao_teste_realizado?: boolean
+          medicao_resultado?: string | null
+          medicao_frequencia_testada?: string | null
+          medicao_potencia_recebida?: number | null
+          medicao_observacoes?: string | null
+          velocidade_teste_realizado?: boolean
+          velocidade_resultado?: string | null
+          velocidade_download?: number | null
+          velocidade_upload?: number | null
+          velocidade_observacoes?: string | null
+          dados_teste_realizado?: boolean
+          dados_resultado?: string | null
+          dados_observacoes?: string | null
+          observacoes_finais?: string | null
+          status_geral?: string
+          progresso_percentual?: number
+          usuario_criacao?: string | null
+          usuario_ultima_alteracao?: string | null
+          ip_criacao?: unknown | null
+          user_agent?: string | null
+          versao_app?: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          nome_tecnico?: string
+          data_atendimento?: string
+          data_hora?: string
+          tipo_equipamento?: string
+          marca?: string
+          modelo?: string
+          endereco_ip?: unknown | null
+          mac_address?: string | null
+          sn_gpon?: string | null
+          wifi_teste_realizado?: boolean
+          wifi_resultado?: string | null
+          wifi_observacoes?: string | null
+          lan_teste_realizado?: boolean
+          lan_resultado?: string | null
+          lan_observacoes?: string | null
+          login_teste_realizado?: boolean
+          login_resultado?: string | null
+          login_observacoes?: string | null
+          medicao_teste_realizado?: boolean
+          medicao_resultado?: string | null
+          medicao_frequencia_testada?: string | null
+          medicao_potencia_recebida?: number | null
+          medicao_observacoes?: string | null
+          velocidade_teste_realizado?: boolean
+          velocidade_resultado?: string | null
+          velocidade_download?: number | null
+          velocidade_upload?: number | null
+          velocidade_observacoes?: string | null
+          dados_teste_realizado?: boolean
+          dados_resultado?: string | null
+          dados_observacoes?: string | null
+          observacoes_finais?: string | null
+          status_geral?: string
+          progresso_percentual?: number
+          usuario_criacao?: string | null
+          usuario_ultima_alteracao?: string | null
+          ip_criacao?: unknown | null
+          user_agent?: string | null
+          versao_app?: string
+        }
+        Relationships: []
+      }
       consumo_producao: {
         Row: {
           created_at: string
