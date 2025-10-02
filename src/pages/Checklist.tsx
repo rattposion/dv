@@ -58,7 +58,7 @@ interface ObservacaoFinal {
 
 const Checklist: React.FC = () => {
   // Hook do Supabase para operações CRUD
-  const { createChecklist, updateChecklist, loading } = useSupabaseChecklists();
+  const { createChecklist, createChecklistSimple, updateChecklist, loading } = useSupabaseChecklists();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -1172,6 +1172,15 @@ const Checklist: React.FC = () => {
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {loading ? 'Salvando...' : 'Salvar Checklist'}
+                  </Button>
+                  
+                  {/* Botão de teste temporário */}
+                  <Button 
+                    onClick={createChecklistSimple}
+                    disabled={loading}
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    🧪 Teste Simples (Debug)
                   </Button>
                   
                   <Button 
