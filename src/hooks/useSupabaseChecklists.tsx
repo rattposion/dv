@@ -16,7 +16,7 @@ export interface ChecklistData {
   tipo_equipamento: string;
   marca: string;
   modelo: string;
-  endereco_ip?: string;
+  endereco_ip?: unknown;
   mac_address?: string;
   sn_gpon?: string;
   
@@ -64,6 +64,9 @@ export interface ChecklistData {
   // Metadados
   usuario_criacao?: string;
   usuario_ultima_alteracao?: string;
+  ip_criacao?: unknown;
+  user_agent?: string;
+  versao_app?: string;
 }
 
 export interface ChecklistFilters {
@@ -116,7 +119,13 @@ export const useSupabaseChecklists = () => {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro detalhado do Supabase:', error);
+        console.error('Código do erro:', error.code);
+        console.error('Mensagem do erro:', error.message);
+        console.error('Detalhes do erro:', error.details);
+        throw error;
+      }
 
       setChecklists(data || []);
       return data || [];
@@ -163,11 +172,70 @@ export const useSupabaseChecklists = () => {
     }
   };
 
+  // Função de teste simplificada
+  const createChecklistSimple = async (): Promise<ChecklistData | null> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const simpleData = {
+        nome_tecnico: 'Teste',
+        data_atendimento: '2025-01-29',
+        data_hora: '10:00',
+        tipo_equipamento: 'ONU',
+        marca: 'Teste',
+        modelo: 'Teste',
+        wifi_teste_realizado: false,
+        lan_teste_realizado: false,
+        login_teste_realizado: false,
+        medicao_teste_realizado: false,
+        velocidade_teste_realizado: false,
+        dados_teste_realizado: false,
+        status_geral: 'pendente',
+        progresso_percentual: 0,
+        versao_app: '1.0.0'
+      };
+
+      console.log('Testando com dados simplificados:', simpleData);
+
+      const { data, error } = await supabase
+        .from('checklists')
+        .insert([simpleData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro com dados simplificados:', error);
+        throw error;
+      }
+
+      console.log('Sucesso com dados simplificados:', data);
+      return data;
+    } catch (err) {
+      console.error('Erro na função simplificada:', err);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Criar novo checklist
   const createChecklist = async (checklistData: Omit<ChecklistData, 'id' | 'created_at' | 'updated_at'>): Promise<ChecklistData | null> => {
     try {
       setLoading(true);
       setError(null);
+
+      // Debug: Log dos dados sendo enviados
+      console.log('Dados do checklist sendo enviados:', checklistData);
+      console.log('Campos obrigatórios:', {
+        nome_tecnico: checklistData.nome_tecnico,
+        data_atendimento: checklistData.data_atendimento,
+        data_hora: checklistData.data_hora,
+        tipo_equipamento: checklistData.tipo_equipamento,
+        marca: checklistData.marca,
+        modelo: checklistData.modelo,
+        versao_app: checklistData.versao_app
+      });
 
       const { data, error } = await supabase
         .from('checklists')
@@ -175,7 +243,13 @@ export const useSupabaseChecklists = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro detalhado do Supabase:', error);
+        console.error('Código do erro:', error.code);
+        console.error('Mensagem do erro:', error.message);
+        console.error('Detalhes do erro:', error.details);
+        throw error;
+      }
 
       toast({
         title: "Sucesso",
@@ -371,6 +445,7 @@ export const useSupabaseChecklists = () => {
     fetchChecklists,
     fetchChecklistById,
     createChecklist,
+    createChecklistSimple,
     updateChecklist,
     deleteChecklist,
     findChecklistsByMac,
