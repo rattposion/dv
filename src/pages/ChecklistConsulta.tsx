@@ -91,6 +91,7 @@ const ChecklistConsulta: React.FC<ChecklistConsultaProps> = () => {
       checklist.marca.toLowerCase().includes(searchTerm.toLowerCase()) ||
       checklist.modelo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (checklist.mac_address && checklist.mac_address.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (checklist.sn_gpon && checklist.sn_gpon.toLowerCase().includes(searchTerm.toLowerCase())) ||
       checklist.status_geral.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
@@ -403,7 +404,7 @@ const ChecklistConsulta: React.FC<ChecklistConsultaProps> = () => {
                 <div className="relative group">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                   <Input
-                    placeholder="Buscar por técnico, equipamento, MAC..."
+                    placeholder="Buscar por técnico, equipamento, MAC, SN GPON..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 bg-white/50 border-gray-200 focus:border-blue-400 focus:bg-white transition-all duration-300 focus:ring-2 focus:ring-blue-100"
@@ -485,6 +486,47 @@ const ChecklistConsulta: React.FC<ChecklistConsultaProps> = () => {
                       type="date"
                       value={filters.data_fim || ''}
                       onChange={(e) => setFilters({...filters, data_fim: e.target.value})}
+                      className="bg-white/50 border-gray-200 focus:border-blue-400 focus:bg-white transition-all duration-300"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="macAddress" className="text-gray-700 font-medium flex items-center gap-2">
+                      <Wifi className="h-4 w-4 text-green-500" />
+                      MAC Address
+                    </Label>
+                    <Input
+                      id="macAddress"
+                      placeholder="Ex: AA:BB:CC:DD:EE:FF"
+                      value={filters.mac_address || ''}
+                      onChange={(e) => setFilters({...filters, mac_address: e.target.value})}
+                      className="bg-white/50 border-gray-200 focus:border-blue-400 focus:bg-white transition-all duration-300"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="snGpon" className="text-gray-700 font-medium flex items-center gap-2">
+                      <Signal className="h-4 w-4 text-orange-500" />
+                      SN GPON
+                    </Label>
+                    <Input
+                      id="snGpon"
+                      placeholder="Serial Number GPON"
+                      value={filters.sn_gpon || ''}
+                      onChange={(e) => setFilters({...filters, sn_gpon: e.target.value})}
+                      className="bg-white/50 border-gray-200 focus:border-blue-400 focus:bg-white transition-all duration-300"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="enderecoIp" className="text-gray-700 font-medium flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-red-500" />
+                      Endereço IP
+                    </Label>
+                    <Input
+                      id="enderecoIp"
+                      placeholder="Ex: 192.168.1.1"
+                      value={filters.endereco_ip || ''}
+                      onChange={(e) => setFilters({...filters, endereco_ip: e.target.value})}
                       className="bg-white/50 border-gray-200 focus:border-blue-400 focus:bg-white transition-all duration-300"
                     />
                   </div>
@@ -573,16 +615,6 @@ const ChecklistConsulta: React.FC<ChecklistConsultaProps> = () => {
                           <div>
                             <span className="font-semibold text-lg text-gray-900">{checklist.nome_tecnico}</span>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                checklist.status_geral === 'concluido' 
-                                  ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200'
-                                  : checklist.status_geral === 'em_andamento'
-                                  ? 'bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800 border border-yellow-200'
-                                  : 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200'
-                              }`}>
-                                {checklist.status_geral === 'concluido' ? '✅ Concluído' :
-                                 checklist.status_geral === 'em_andamento' ? '⏳ Em Andamento' : '⏸️ Pendente'}
-                              </span>
                               <span className="text-xs text-gray-700 flex items-center gap-1 font-medium">
                                 <Calendar className="h-3 w-3" />
                                 {new Date(checklist.data_atendimento).toLocaleDateString('pt-BR')}
@@ -648,16 +680,6 @@ const ChecklistConsulta: React.FC<ChecklistConsultaProps> = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-4 mt-3">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        selectedChecklist.status_geral === 'concluido' 
-                          ? 'bg-green-500/30 text-green-50 border border-green-300/50 shadow-sm'
-                          : selectedChecklist.status_geral === 'em_andamento'
-                          ? 'bg-yellow-500/30 text-yellow-50 border border-yellow-300/50 shadow-sm'
-                          : 'bg-red-500/30 text-red-50 border border-red-300/50 shadow-sm'
-                      }`}>
-                        {selectedChecklist.status_geral === 'concluido' ? '✅ Concluído' :
-                         selectedChecklist.status_geral === 'em_andamento' ? '⏳ Em Andamento' : '⏸️ Pendente'}
-                      </span>
                       <span className="text-blue-50 text-sm flex items-center gap-1 font-medium">
                         <Calendar className="h-4 w-4" />
                         {new Date(selectedChecklist.data_atendimento).toLocaleDateString('pt-BR')}
