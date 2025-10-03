@@ -275,6 +275,7 @@ const Checklist: React.FC = () => {
   // Função para converter dados do formulário para o formato do Supabase
   const convertToChecklistData = useCallback((): Omit<ChecklistData, 'id' | 'created_at' | 'updated_at'> => {
     const progressoAtual = calcularStatusGeralDetalhado();
+    console.log('🔍 Progresso calculado:', progressoAtual, typeof progressoAtual);
     
     // Converter data_hora para formato ISO 8601
     const convertDataHora = (dataHoraStr: string): string => {
@@ -355,7 +356,7 @@ const Checklist: React.FC = () => {
       login_teste_realizado: testeLogin.enderecoIP !== '',
       login_resultado: testeLogin.resultadoLogin ? 'aprovado' : 'reprovado',
       login_observacoes: testeLogin.usuarioTestado || testeLogin.permissoesVerificadas ? 
-        `Usuário testado: ${testeLogin.usuarioTestado || 'N/A'}. Permissões: ${testeLogin.permissoesVerificadas || 'N/A'}` : null,
+        `Usuário testado: ${testeLogin.usuarioTestado || 'N/A'}. Senha: ${testeLogin.permissoesVerificadas || 'N/A'}` : null,
       
       // Medição de Sinal
       medicao_teste_realizado: medicaoSinal.intensidadeDbm !== '',
@@ -384,7 +385,7 @@ const Checklist: React.FC = () => {
       
       // Status e Progresso
       status_geral: progressoAtual >= 100 ? 'concluido' : progressoAtual > 0 ? 'em_andamento' : 'pendente',
-      progresso_percentual: progressoAtual,
+      progresso_percentual: Math.max(0, Math.min(100, Math.round(progressoAtual || 0))),
       
       // Metadados
       usuario_criacao: dadosTecnico.nomeTecnico && dadosTecnico.nomeTecnico.trim() !== '' ? dadosTecnico.nomeTecnico : 'Técnico não informado',
@@ -1194,31 +1195,7 @@ const Checklist: React.FC = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Status Geral */}
-            <Card className="shadow-lg border-0 bg-card/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-primary-foreground rounded-t-lg">
-                <CardTitle className="flex items-center space-x-2">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>STATUS GERAL</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-3">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-foreground">{calcularStatusGeralDetalhado()}%</div>
-                    <div className="text-sm text-muted-foreground">Progresso do Checklist</div>
-                  </div>
-                  <div className="mt-2">
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-green-600 h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${calcularStatusGeralDetalhado()}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+
 
             {/* Ações */}
             <Card className="shadow-lg border-0 bg-card/80 backdrop-blur-sm">

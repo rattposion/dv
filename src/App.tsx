@@ -29,6 +29,7 @@ import Checklist from "./pages/Checklist";
 import Status from "./pages/Status";
 import Auth from "./pages/Auth";
 import ChecklistHistory from "./pages/ChecklistHistory";
+import ChecklistConsulta from "./pages/ChecklistConsulta";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => (
                           <Route path="/rma" element={<RMA />} />
                           <Route path="/checklist" element={<Checklist />} />
                           <Route path="/checklist-history" element={<ChecklistHistory />} />
+                          <Route path="/checklist-consulta" element={<ChecklistConsulta />} />
                           <Route path="/status" element={<Status />} />
                           <Route path="/relatorios" element={<Relatorios />} />
                           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
