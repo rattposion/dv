@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+
 import { FileText, Settings, CheckCircle, AlertTriangle, Plus, X, Download, Save, RefreshCw, Trash2, Calendar, Monitor, CheckSquare, Activity, History } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -58,13 +58,13 @@ interface ObservacaoFinal {
 
 const Checklist: React.FC = () => {
   // Hook do Supabase para operações CRUD
-  const { createChecklist, createChecklistSimple, updateChecklist, loading } = useSupabaseChecklists();
+  const { createChecklist, updateChecklist, loading } = useSupabaseChecklists();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // Estados de controle do salvamento
   const [checklistId, setChecklistId] = useState<string | null>(null);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -276,66 +276,121 @@ const Checklist: React.FC = () => {
   const convertToChecklistData = useCallback((): Omit<ChecklistData, 'id' | 'created_at' | 'updated_at'> => {
     const progressoAtual = calcularStatusGeralDetalhado();
     
+    // Converter data_hora para formato ISO 8601
+    const convertDataHora = (dataHoraStr: string): string => {
+      try {
+        console.log('🔍 convertDataHora - Input:', dataHoraStr, typeof dataHoraStr);
+        
+        // Verificar se o input é válido
+        if (!dataHoraStr || typeof dataHoraStr !== 'string') {
+          console.warn('⚠️ convertDataHora - Input inválido, usando data atual');
+          return new Date().toISOString();
+        }
+        
+        // Se já está no formato ISO, retorna como está
+        if (dataHoraStr.includes('T') && dataHoraStr.includes('Z')) {
+          console.log('✅ convertDataHora - Já está em formato ISO:', dataHoraStr);
+          return dataHoraStr;
+        }
+        
+        // Converter formato brasileiro para ISO
+        // Formato esperado: "29/01/2025 10:00:00" ou "29/01/2025, 10:00:00"
+        const normalizedStr = dataHoraStr.replace(',', ''); // Remove vírgula se existir
+        const [datePart, timePart] = normalizedStr.split(' ');
+        console.log('🔍 convertDataHora - Partes:', { datePart, timePart });
+        
+        if (datePart && timePart) {
+          const [day, month, year] = datePart.split('/');
+          console.log('🔍 convertDataHora - Data partes:', { day, month, year });
+          
+          // Validar se todas as partes existem e são números
+          if (!day || !month || !year || isNaN(Number(day)) || isNaN(Number(month)) || isNaN(Number(year))) {
+            console.warn('⚠️ convertDataHora - Partes da data inválidas, usando data atual');
+            return new Date().toISOString();
+          }
+          
+          const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          const result = `${isoDate}T${timePart}.000Z`;
+          console.log('✅ convertDataHora - Resultado:', result);
+          return result;
+        }
+        
+        // Fallback: usar data/hora atual
+        console.warn('⚠️ convertDataHora - Formato não reconhecido, usando data atual');
+        return new Date().toISOString();
+      } catch (error) {
+        console.error('❌ convertDataHora - Erro:', error);
+        console.warn('⚠️ convertDataHora - Usando data atual devido ao erro');
+        return new Date().toISOString();
+      }
+    };
+    
     return {
       // Dados do Técnico
-      nome_tecnico: dadosTecnico.nomeTecnico,
+      nome_tecnico: dadosTecnico.nomeTecnico && dadosTecnico.nomeTecnico.trim() !== '' ? dadosTecnico.nomeTecnico : 'Técnico não informado',
       data_atendimento: new Date().toISOString().split('T')[0],
-      data_hora: dadosTecnico.dataHora,
+      data_hora: convertDataHora(dadosTecnico.dataHora),
       
       // Dados do Equipamento
       tipo_equipamento: 'ONU', // Valor padrão baseado no contexto
-      marca: dadosEquipamento.modelo.split(' ')[0] || '',
-      modelo: dadosEquipamento.modelo,
-      endereco_ip: testeLogin.enderecoIP,
-      mac_address: dadosEquipamento.mac,
-      sn_gpon: dadosEquipamento.snGpon,
+      marca: dadosEquipamento.modelo && dadosEquipamento.modelo.split(' ')[0] ? dadosEquipamento.modelo.split(' ')[0] : 'Marca não informada',
+      modelo: dadosEquipamento.modelo && dadosEquipamento.modelo.trim() !== '' ? dadosEquipamento.modelo : 'Modelo não informado',
+      endereco_ip: testeLogin.enderecoIP && testeLogin.enderecoIP.trim() !== '' ? testeLogin.enderecoIP : null,
+      mac_address: dadosEquipamento.mac && dadosEquipamento.mac.trim() !== '' ? dadosEquipamento.mac : null,
+      sn_gpon: dadosEquipamento.snGpon && dadosEquipamento.snGpon.trim() !== '' ? dadosEquipamento.snGpon : null,
       
       // Testes Wi-Fi
       wifi_teste_realizado: testeWiFi.statusConexao !== null,
       wifi_resultado: testeWiFi.statusConexao ? 'aprovado' : 'reprovado',
-      wifi_observacoes: `Estabilidade: ${testeWiFi.estabilidade}. Obstáculos: ${testeWiFi.obstaculosIdentificados}`,
+      wifi_observacoes: testeWiFi.estabilidade || testeWiFi.obstaculosIdentificados ? 
+        `Estabilidade: ${testeWiFi.estabilidade || 'N/A'}. Obstáculos: ${testeWiFi.obstaculosIdentificados || 'N/A'}` : null,
       
       // Teste de Portas LAN
       lan_teste_realizado: testePortasLAN.portasTestadas !== '',
       lan_resultado: testePortasLAN.linkAtivo ? 'aprovado' : 'reprovado',
-      lan_observacoes: `Portas testadas: ${testePortasLAN.portasTestadas}. Velocidade: ${testePortasLAN.velocidadeNegociada}. Ping: ${testePortasLAN.testePing}`,
+      lan_observacoes: testePortasLAN.portasTestadas || testePortasLAN.velocidadeNegociada || testePortasLAN.testePing ? 
+        `Portas testadas: ${testePortasLAN.portasTestadas || 'N/A'}. Velocidade: ${testePortasLAN.velocidadeNegociada || 'N/A'}. Ping: ${testePortasLAN.testePing || 'N/A'}` : null,
       
       // Teste de Login
       login_teste_realizado: testeLogin.enderecoIP !== '',
       login_resultado: testeLogin.resultadoLogin ? 'aprovado' : 'reprovado',
-      login_observacoes: `Usuário testado: ${testeLogin.usuarioTestado}. Permissões: ${testeLogin.permissoesVerificadas}`,
+      login_observacoes: testeLogin.usuarioTestado || testeLogin.permissoesVerificadas ? 
+        `Usuário testado: ${testeLogin.usuarioTestado || 'N/A'}. Permissões: ${testeLogin.permissoesVerificadas || 'N/A'}` : null,
       
       // Medição de Sinal
       medicao_teste_realizado: medicaoSinal.intensidadeDbm !== '',
       medicao_resultado: medicaoSinal.intensidadeDbm ? 'aprovado' : 'nao_aplicavel',
-      medicao_frequencia_testada: medicaoSinal.frequenciaTestada,
+      medicao_frequencia_testada: medicaoSinal.frequenciaTestada && medicaoSinal.frequenciaTestada.trim() !== '' ? medicaoSinal.frequenciaTestada : null,
       medicao_potencia_recebida: medicaoSinal.intensidadeDbm ? parseFloat(medicaoSinal.intensidadeDbm) : undefined,
-      medicao_observacoes: `Perda medida: ${medicaoSinal.perdaMedida}. Cobertura: ${medicaoSinal.coberturaPorArea}`,
+      medicao_observacoes: medicaoSinal.perdaMedida || medicaoSinal.coberturaPorArea ? 
+        `Perda medida: ${medicaoSinal.perdaMedida || 'N/A'}. Cobertura: ${medicaoSinal.coberturaPorArea || 'N/A'}` : null,
       
       // Teste de Velocidade
       velocidade_teste_realizado: testeVelocidade.download !== '' || testeVelocidade.upload !== '',
       velocidade_resultado: testeVelocidade.resultadoComparado ? 'aprovado' : 'nao_aplicavel',
       velocidade_download: testeVelocidade.download ? parseFloat(testeVelocidade.download) : undefined,
       velocidade_upload: testeVelocidade.upload ? parseFloat(testeVelocidade.upload) : undefined,
-      velocidade_observacoes: `Latência: ${testeVelocidade.latencia}. Perda de pacotes: ${testeVelocidade.perdaPacotes}`,
+      velocidade_observacoes: testeVelocidade.latencia || testeVelocidade.perdaPacotes ? 
+        `Latência: ${testeVelocidade.latencia || 'N/A'}. Perda de pacotes: ${testeVelocidade.perdaPacotes || 'N/A'}` : null,
       
       // Dados Técnicos (assumindo que é um teste geral)
       dados_teste_realizado: true,
       dados_resultado: progressoAtual >= 80 ? 'aprovado' : progressoAtual >= 50 ? 'nao_aplicavel' : 'reprovado',
-      dados_observacoes: `Potência óptica: ${dadosEquipamento.potenciaOptica}. Distância fibra: ${dadosEquipamento.distanciaFibra}. Status ONU: ${dadosEquipamento.statusOnu}`,
+      dados_observacoes: dadosEquipamento.potenciaOptica || dadosEquipamento.distanciaFibra || dadosEquipamento.statusOnu ? 
+        `Potência óptica: ${dadosEquipamento.potenciaOptica || 'N/A'}. Distância fibra: ${dadosEquipamento.distanciaFibra || 'N/A'}. Status ONU: ${dadosEquipamento.statusOnu || 'N/A'}` : null,
       
       // Observações Finais
-      observacoes_finais: observacaoFinal.observacoes,
+      observacoes_finais: observacaoFinal.observacoes && observacaoFinal.observacoes.trim() !== '' ? observacaoFinal.observacoes : null,
       
       // Status e Progresso
       status_geral: progressoAtual >= 100 ? 'concluido' : progressoAtual > 0 ? 'em_andamento' : 'pendente',
       progresso_percentual: progressoAtual,
       
       // Metadados
-      usuario_criacao: dadosTecnico.nomeTecnico,
-      usuario_ultima_alteracao: dadosTecnico.nomeTecnico,
+      usuario_criacao: dadosTecnico.nomeTecnico && dadosTecnico.nomeTecnico.trim() !== '' ? dadosTecnico.nomeTecnico : 'Técnico não informado',
+      usuario_ultima_alteracao: dadosTecnico.nomeTecnico && dadosTecnico.nomeTecnico.trim() !== '' ? dadosTecnico.nomeTecnico : 'Técnico não informado',
       ip_criacao: null,
-      user_agent: navigator.userAgent,
+      user_agent: navigator.userAgent || null,
       versao_app: '1.0.0',
     };
   }, [dadosTecnico, dadosEquipamento, testeWiFi, testePortasLAN, testeLogin, medicaoSinal, testeVelocidade, observacaoFinal]);
@@ -343,12 +398,16 @@ const Checklist: React.FC = () => {
   // Função para salvar checklist
   const saveChecklist = useCallback(async (showToast = true) => {
     try {
+      console.log('🔄 Iniciando salvamento do checklist...');
       const checklistData = convertToChecklistData();
+      console.log('📋 Dados do checklist preparados:', checklistData);
       
       if (checklistId) {
+        console.log('✏️ Atualizando checklist existente, ID:', checklistId);
         // Atualizar checklist existente
         const result = await updateChecklist(checklistId, checklistData);
         if (result) {
+          console.log('✅ Checklist atualizado com sucesso:', result);
           setLastSaved(new Date());
           setHasUnsavedChanges(false);
           if (showToast) {
@@ -357,11 +416,16 @@ const Checklist: React.FC = () => {
               description: "Checklist atualizado automaticamente!",
             });
           }
+        } else {
+          console.error('❌ Falha na atualização - resultado vazio');
         }
       } else {
+        console.log('➕ Criando novo checklist...');
         // Criar novo checklist
         const result = await createChecklist(checklistData);
+        console.log('📤 Resultado da criação:', result);
         if (result) {
+          console.log('✅ Checklist criado com sucesso, ID:', result.id);
           setChecklistId(result.id!);
           setLastSaved(new Date());
           setHasUnsavedChanges(false);
@@ -371,30 +435,27 @@ const Checklist: React.FC = () => {
               description: "Checklist salvo com sucesso!",
             });
           }
+        } else {
+          console.error('❌ Falha na criação - resultado vazio');
         }
       }
     } catch (error) {
-      console.error('Erro ao salvar checklist:', error);
+      console.error('❌ ERRO DETALHADO ao salvar checklist:', error);
+      console.error('❌ Tipo do erro:', typeof error);
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      
       if (showToast) {
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
         toast({
           title: "Erro",
-          description: "Falha ao salvar checklist. Tente novamente.",
+          description: `Falha ao salvar checklist: ${errorMessage}`,
           variant: "destructive",
         });
       }
     }
   }, [checklistId, convertToChecklistData, createChecklist, updateChecklist, toast]);
 
-  // Auto-save quando há mudanças
-  useEffect(() => {
-    if (!autoSaveEnabled || !hasUnsavedChanges) return;
 
-    const autoSaveTimer = setTimeout(() => {
-      saveChecklist(false); // Salvar sem mostrar toast
-    }, 3000); // Auto-save após 3 segundos de inatividade
-
-    return () => clearTimeout(autoSaveTimer);
-  }, [hasUnsavedChanges, autoSaveEnabled, saveChecklist]);
 
   // Marcar como alterado quando qualquer estado muda
   useEffect(() => {
@@ -403,6 +464,10 @@ const Checklist: React.FC = () => {
 
   const generatePDF = async () => {
     try {
+      console.log('Salvando checklist antes de gerar PDF...');
+      // Salvar checklist automaticamente antes de gerar o PDF
+      await saveChecklist(false);
+      
       console.log('Iniciando geração do PDF...');
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.width;
@@ -1165,24 +1230,8 @@ const Checklist: React.FC = () => {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-3">
-                  <Button 
-                    onClick={() => saveChecklist(true)}
-                    disabled={loading || !hasUnsavedChanges}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    {loading ? 'Salvando...' : 'Salvar Checklist'}
-                  </Button>
-                  
-                  {/* Botão de teste temporário */}
-                  <Button 
-                    onClick={createChecklistSimple}
-                    disabled={loading}
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                  >
-                    🧪 Teste Simples (Debug)
-                  </Button>
-                  
+
+
                   <Button 
                     onClick={generatePDF}
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -1200,18 +1249,11 @@ const Checklist: React.FC = () => {
                     Ver Histórico
                   </Button>
 
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        checked={autoSaveEnabled}
-                        onCheckedChange={setAutoSaveEnabled}
-                      />
-                      <span>Auto-save</span>
-                    </div>
-                    {lastSaved && (
+                  {lastSaved && (
+                    <div className="text-xs text-muted-foreground mt-2 text-right">
                       <span>Salvo: {lastSaved.toLocaleTimeString('pt-BR')}</span>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {hasUnsavedChanges && (
                     <div className="flex items-center text-xs text-orange-500">

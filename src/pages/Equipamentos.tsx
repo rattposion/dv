@@ -75,10 +75,12 @@ export default function Equipamentos() {
         nome: nomeEquipamento,
         modelo: modeloEquipamento,
         numeroSerie: `${modeloEquipamento}${String(Date.now()).slice(-6)}`,
-        mac: `00:1A:2B:3C:4D:${String(equipamentos.length + 1).padStart(2, '0')}`,
+        // MAC não é mais obrigatório - será undefined se não fornecido
+        mac: undefined,
         responsavel: "Sistema",
         status: "Ativo" as const,
-        localizacao: "A definir",
+        // Localização não é mais obrigatória - será undefined se não fornecida
+        localizacao: undefined,
         observacoes: "Equipamento cadastrado via sistema"
       };
 

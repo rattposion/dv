@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ import {
   XCircle, 
   Clock,
   Eye,
+  Edit,
   Trash2,
   Download,
   Filter
@@ -21,6 +23,7 @@ import {
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useSupabaseChecklists, ChecklistData, ChecklistFilters } from '@/hooks/useSupabaseChecklists';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ChecklistHistory: React.FC = () => {
   const { 
@@ -34,6 +37,11 @@ const ChecklistHistory: React.FC = () => {
   } = useSupabaseChecklists();
   
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Verificar se o usuário tem permissão para editar/excluir
+  const canEditDelete = user?.email === 'wesleyalves.cs@gmail.com';
 
   // Estados para filtros
   const [filters, setFilters] = useState<ChecklistFilters>({});
@@ -129,6 +137,11 @@ const ChecklistHistory: React.FC = () => {
   // Visualizar detalhes
   const viewDetails = (checklist: ChecklistData) => {
     setSelectedChecklist(checklist);
+  };
+
+  // Editar checklist
+  const handleEdit = (checklist: ChecklistData) => {
+    navigate(`/checklist?id=${checklist.id}`);
   };
 
   // Exportar dados
@@ -436,14 +449,26 @@ const ChecklistHistory: React.FC = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleDelete(checklist.id!)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {canEditDelete && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleEdit(checklist)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {canEditDelete && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDelete(checklist.id!)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>

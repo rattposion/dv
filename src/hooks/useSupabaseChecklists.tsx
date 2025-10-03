@@ -178,13 +178,22 @@ export const useSupabaseChecklists = () => {
       setLoading(true);
       setError(null);
 
+      console.log('🧪 Iniciando teste simplificado...');
+      
+      // Criar timestamp completo para data_hora
+      const dataAtendimento = '2025-01-29';
+      const dataHoraCompleta = `${dataAtendimento}T10:00:00.000Z`;
+      
       const simpleData = {
-        nome_tecnico: 'Teste',
-        data_atendimento: '2025-01-29',
-        data_hora: '10:00',
+        nome_tecnico: 'Teste Técnico',
+        data_atendimento: dataAtendimento,
+        data_hora: dataHoraCompleta,
         tipo_equipamento: 'ONU',
         marca: 'Teste',
-        modelo: 'Teste',
+        modelo: 'Teste Model',
+        endereco_ip: null, // Explicitamente null
+        mac_address: null, // Explicitamente null
+        sn_gpon: null, // Explicitamente null
         wifi_teste_realizado: false,
         lan_teste_realizado: false,
         login_teste_realizado: false,
@@ -193,10 +202,17 @@ export const useSupabaseChecklists = () => {
         dados_teste_realizado: false,
         status_geral: 'pendente',
         progresso_percentual: 0,
+        usuario_criacao: null, // Explicitamente null
+        usuario_ultima_alteracao: null, // Explicitamente null
+        ip_criacao: null, // Explicitamente null
+        user_agent: null, // Explicitamente null
         versao_app: '1.0.0'
       };
 
-      console.log('Testando com dados simplificados:', simpleData);
+      console.log('📤 Dados de teste (com campos inet explícitos):', simpleData);
+      console.log('🔍 Verificando campos inet especificamente:');
+      console.log('  - endereco_ip:', simpleData.endereco_ip, typeof simpleData.endereco_ip);
+      console.log('  - ip_criacao:', simpleData.ip_criacao, typeof simpleData.ip_criacao);
 
       const { data, error } = await supabase
         .from('checklists')
@@ -205,14 +221,17 @@ export const useSupabaseChecklists = () => {
         .single();
 
       if (error) {
-        console.error('Erro com dados simplificados:', error);
+        console.error('❌ Erro com dados simplificados:', error);
+        console.error('❌ Código do erro:', error.code);
+        console.error('❌ Mensagem do erro:', error.message);
+        console.error('❌ Detalhes do erro:', error.details);
         throw error;
       }
 
-      console.log('Sucesso com dados simplificados:', data);
+      console.log('✅ Teste simples executado com sucesso:', data);
       return data;
     } catch (err) {
-      console.error('Erro na função simplificada:', err);
+      console.error('❌ Erro na função simplificada:', err);
       return null;
     } finally {
       setLoading(false);

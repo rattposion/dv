@@ -39,6 +39,54 @@ export const useSupabaseEquipamentos = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // Verificar conectividade com Supabase
+  const checkConnection = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('equipamentos')
+        .select('count', { count: 'exact', head: true });
+      
+      if (error) {
+        console.error('Erro de conectividade:', error);
+        return false;
+      }
+      
+      console.log('Conexão com Supabase OK. Total de equipamentos:', data);
+      return true;
+    } catch (error) {
+      console.error('Falha na conectividade:', error);
+      return false;
+    }
+  };
+
+  // Verificar se MAC address já existe
+  const checkMacExists = async (macAddress: string): Promise<{ exists: boolean; equipamento?: any }> => {
+    try {
+      if (!macAddress || macAddress.trim() === '') {
+        return { exists: false };
+      }
+
+      const { data, error } = await supabase
+        .from('equipamentos')
+        .select('id, nome, mac_address')
+        .eq('mac_address', macAddress.trim())
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao verificar MAC:', error);
+        return { exists: false };
+      }
+
+      return { 
+        exists: !!data, 
+        equipamento: data 
+      };
+    } catch (error) {
+      console.error('Erro na verificação de MAC:', error);
+      return { exists: false };
+    }
+  };
+
   // Converter de Supabase para formato local
   const convertFromSupabase = (equipamento: EquipamentoSupabase): EquipamentoLocal => ({
     id: equipamento.id,
@@ -59,29 +107,62 @@ export const useSupabaseEquipamentos = () => {
     nome: equipamento.nome,
     tipo: 'equipamento', // Padrão
     modelo: equipamento.modelo,
-    mac_address: equipamento.mac,
+    // MAC address é opcional - só inclui se fornecido
+    mac_address: equipamento.mac && equipamento.mac.trim() !== '' ? equipamento.mac : null,
     status: equipamento.status === 'Ativo' ? 'ativo' : 
            equipamento.status === 'Manutenção' ? 'manutencao' : 'inativo',
-    localizacao: equipamento.localizacao,
+    // Localização é opcional - só inclui se fornecida
+    localizacao: equipamento.localizacao && equipamento.localizacao.trim() !== '' ? equipamento.localizacao : null,
     observacoes: equipamento.observacoes
   });
 
   const fetchEquipamentos = async () => {
     try {
+      setLoading(true);
+      
+      // Verificar conectividade primeiro
+      const isConnected = await checkConnection();
+      if (!isConnected) {
+        throw new Error('Falha na conectividade com o banco de dados');
+      }
+      
+      // Fazer a requisição com campos específicos para evitar problemas de URL
       const { data, error } = await supabase
         .from('equipamentos')
-        .select('*')
+        .select(`
+          id,
+          nome,
+          tipo,
+          marca,
+          modelo,
+          mac_address,
+          ip_address,
+          localizacao,
+          status,
+          data_aquisicao,
+          valor_aquisicao,
+          garantia_ate,
+          observacoes,
+          responsavel_id,
+          created_at,
+          updated_at
+        `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro do Supabase:', error);
+        throw error;
+      }
 
+      console.log('Dados recebidos do Supabase:', data);
       const equipamentosLocais = (data || []).map(convertFromSupabase);
       setEquipamentos(equipamentosLocais);
     } catch (error: any) {
+      console.error('Erro completo ao carregar equipamentos:', error);
       toast({
         variant: "destructive",
         title: "Erro ao carregar equipamentos",
-        description: error.message
+        description: error.message || "Erro desconhecido ao carregar dados"
       });
     } finally {
       setLoading(false);
@@ -92,24 +173,53 @@ export const useSupabaseEquipamentos = () => {
     try {
       const equipamentoSupabase = convertToSupabase(equipamento);
       
+      console.log('Dados a serem inseridos:', equipamentoSupabase);
+      
       const { data, error } = await supabase
         .from('equipamentos')
         .insert([equipamentoSupabase])
-        .select()
+        .select(`
+          id,
+          nome,
+          tipo,
+          marca,
+          modelo,
+          mac_address,
+          ip_address,
+          localizacao,
+          status,
+          data_aquisicao,
+          valor_aquisicao,
+          garantia_ate,
+          observacoes,
+          responsavel_id,
+          created_at,
+          updated_at
+        `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao inserir equipamento:', error);
+        toast({
+          variant: "destructive",
+          title: "Erro ao adicionar equipamento",
+          description: error.message || "Erro desconhecido ao adicionar equipamento"
+        });
+        throw error;
+      }
 
       const novoEquipamento = convertFromSupabase(data);
       setEquipamentos(prev => [novoEquipamento, ...prev]);
       
+      toast({
+        title: "Equipamento adicionado",
+        description: `${novoEquipamento.nome} foi adicionado com sucesso!`
+      });
+      
       return novoEquipamento;
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Erro ao adicionar equipamento",
-        description: error.message
-      });
+      console.error('Erro completo ao adicionar equipamento:', error);
+      // Erro já foi tratado acima, apenas re-throw
       throw error;
     }
   };
