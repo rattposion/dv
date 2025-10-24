@@ -208,10 +208,11 @@ export const useSupabaseProducao = () => {
   // Função para verificar estoque de recebimento disponível
   const verificarEstoqueRecebimento = async (modelo: string): Promise<number> => {
     try {
+      const normalized = (modelo || "").trim();
       const { data, error } = await supabase
         .from('estoque_recebimento')
         .select('quantidade_disponivel')
-        .eq('modelo', modelo)
+        .eq('modelo', normalized)
         .maybeSingle();
 
       if (error) throw error;
