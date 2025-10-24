@@ -48,7 +48,8 @@ export default function Producao() {
   // Auto-sync equipment selection for production
   useEffect(() => {
     if (selectedEquipmentProducao) {
-      setEquipamentoSelecionado(selectedEquipmentProducao.nome);
+      // Usar o modelo (ex.: "6600") para checar estoque de recebimento e registrar produção
+      setEquipamentoSelecionado(selectedEquipmentProducao.modelo);
     }
   }, [selectedEquipmentProducao]);
 
@@ -278,8 +279,10 @@ export default function Producao() {
     // Registrar produção no Supabase (irá consumir estoque de recebimento e criar produtos)
     const sucesso = await registrarProducao({
       numeroCaixa,
-      equipamento: equipamentoSelecionado,
-      modelo: equipamentoSelecionado,
+      // Nome comercial do equipamento (ex.: "ONU Industrial")
+      equipamento: selectedEquipmentProducao?.nome || equipamentoSelecionado,
+      // Código/modelo (ex.: "6600")
+      modelo: selectedEquipmentProducao?.modelo || equipamentoSelecionado,
       quantidade: macs.length,
       responsavel: funcionarioSelecionado,
       macs
