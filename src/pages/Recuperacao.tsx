@@ -176,7 +176,9 @@ export default function Recuperacao() {
       return;
     }
 
-    if (!validateMacFormat(cleanMac)) {
+    const formattedMac = formatMacAddress(cleanMac);
+
+    if (!validateMacFormat(formattedMac)) {
       toast({
         title: "Formato inválido",
         description: "MAC deve ter 12 caracteres hexadecimais (ex: C85A9FC7B9C0 ou C8:5A:9F:C7:B9:C0)",
@@ -184,8 +186,6 @@ export default function Recuperacao() {
       });
       return;
     }
-
-    const formattedMac = formatMacAddress(cleanMac);
 
     // Verificar duplicata local
     if (macs.includes(formattedMac)) {
