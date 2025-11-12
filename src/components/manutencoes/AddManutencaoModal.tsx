@@ -37,7 +37,7 @@ export function AddManutencaoModal({ open, onOpenChange }: AddManutencaoModalPro
     origemEquipamento: '',
     defeitoEquipamento: '',
     status: 'aberta',
-    dataAbertura: new Date().toISOString().split('T')[0]
+    dataAbertura: new Date().toLocaleDateString('en-CA')
   });
 
   const generateNumeroTarefa = () => {
@@ -79,7 +79,7 @@ export function AddManutencaoModal({ open, onOpenChange }: AddManutencaoModalPro
         origemEquipamento: '',
         defeitoEquipamento: '',
         status: 'aberta',
-        dataAbertura: new Date().toISOString().split('T')[0]
+        dataAbertura: new Date().toLocaleDateString('en-CA')
       });
     } catch (error) {
       toast.error("Erro ao criar ordem de serviço");

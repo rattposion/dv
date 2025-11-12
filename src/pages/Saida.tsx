@@ -825,7 +825,7 @@ export default function Saida() {
         destino_envio: rmaData.destino_envio,
         defeito_relatado: rmaData.defeito_relatado,
         status: "Aberto",
-        data_abertura: new Date().toISOString().split('T')[0],
+        data_abertura: new Date().toLocaleDateString('en-CA'),
         tecnico_responsavel: rmaData.tecnico_responsavel,
         observacoes: rmaData.observacoes,
         nota_fiscal: rmaData.nota_fiscal,

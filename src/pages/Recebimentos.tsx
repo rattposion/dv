@@ -54,7 +54,7 @@ export default function Recebimentos() {
   const [novoRecebimento, setNovoRecebimento] = useState({
     origem: "",
     responsavel_recebimento: "",
-    data_recebimento: new Date().toISOString().split('T')[0],
+    data_recebimento: new Date().toLocaleDateString('en-CA'),
     observacoes: "",
     itens: [] as ItemRecebimento[]
   });
@@ -283,7 +283,7 @@ export default function Recebimentos() {
       setNovoRecebimento({
         origem: "",
         responsavel_recebimento: "",
-        data_recebimento: new Date().toISOString().split('T')[0],
+        data_recebimento: new Date().toLocaleDateString('en-CA'),
         observacoes: "",
         itens: []
       });
