@@ -91,7 +91,7 @@ export const useSupabaseDashboard = () => {
       });
 
       // 5. Buscar produção do dia atual
-      const hoje = new Date().toISOString().split('T')[0];
+      const hoje = new Date().toLocaleDateString('en-CA');
       const { data: producaoDiaria, error: producaoDiariaError } = await supabase
         .from('producao_diaria')
         .select('*')

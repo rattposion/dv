@@ -74,8 +74,8 @@ export const useSupabaseProducao = () => {
           quantidade_planejada: dadosProducao.quantidade,
           quantidade_produzida: dadosProducao.quantidade,
           status: 'concluida',
-          data_inicio: new Date().toISOString().split('T')[0],
-          data_fim_real: new Date().toISOString().split('T')[0],
+          data_inicio: new Date().toLocaleDateString('en-CA'),
+          data_fim_real: new Date().toLocaleDateString('en-CA'),
           observacoes: `Caixa: ${dadosProducao.numeroCaixa}, MACs: ${dadosProducao.macs.join(', ')}`
         }])
         .select()
@@ -121,7 +121,7 @@ export const useSupabaseProducao = () => {
       if (movimentacaoError) throw movimentacaoError;
 
       // 7. Registrar produção diária do colaborador
-      const hoje = new Date().toISOString().split('T')[0];
+      const hoje = new Date().toLocaleDateString('en-CA');
       const { data: producaoDiariaExistente, error: producaoDiariaError } = await supabase
         .from('producao_diaria')
         .select('*')
