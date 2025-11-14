@@ -42,7 +42,7 @@ export const useSupabaseEquipamentos = () => {
   // Verificar conectividade com Supabase
   const checkConnection = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('equipamentos')
         .select('count', { count: 'exact', head: true });
       
@@ -51,7 +51,7 @@ export const useSupabaseEquipamentos = () => {
         return false;
       }
       
-      console.log('Conexão com Supabase OK. Total de equipamentos:', data);
+      console.log('Conexão com Supabase OK. Total de equipamentos:', count ?? 0);
       return true;
     } catch (error) {
       console.error('Falha na conectividade:', error);

@@ -32,11 +32,14 @@ export function useMacValidation() {
       const macUpper = mac.toUpperCase();
       
       // Verificar na tabela equipamentos
-      const { data: equipamentos, error: equipError } = await supabase
+      let equipamentosQuery = supabase
         .from('equipamentos')
         .select('id, nome, mac_address')
-        .eq('mac_address', macUpper)
-        .neq('id', excludeId || '');
+        .eq('mac_address', macUpper);
+      if (excludeId) {
+        equipamentosQuery = equipamentosQuery.neq('id', excludeId);
+      }
+      const { data: equipamentos, error: equipError } = await equipamentosQuery;
 
       if (equipError) {
         console.error('Erro ao verificar equipamentos:', equipError);
@@ -53,11 +56,14 @@ export function useMacValidation() {
       }
 
       // Verificar na tabela caixas_inventario
-      const { data: caixas, error: caixasError } = await supabase
+      let caixasQuery = supabase
         .from('caixas_inventario')
         .select('id, numero_caixa, equipamento, macs')
-        .contains('macs', [macUpper])
-        .neq('id', excludeId || '');
+        .contains('macs', [macUpper]);
+      if (excludeId) {
+        caixasQuery = caixasQuery.neq('id', excludeId);
+      }
+      const { data: caixas, error: caixasError } = await caixasQuery;
 
       if (caixasError) {
         console.error('Erro ao verificar caixas de inventário:', caixasError);
@@ -74,11 +80,14 @@ export function useMacValidation() {
       }
 
       // Verificar na tabela defeitos
-      const { data: defeitos, error: defeitosError } = await supabase
+      let defeitosQuery = supabase
         .from('defeitos')
         .select('id, equipamento, modelo, macs')
-        .contains('macs', [macUpper])
-        .neq('id', excludeId || '');
+        .contains('macs', [macUpper]);
+      if (excludeId) {
+        defeitosQuery = defeitosQuery.neq('id', excludeId);
+      }
+      const { data: defeitos, error: defeitosError } = await defeitosQuery;
 
       if (defeitosError) {
         console.error('Erro ao verificar defeitos:', defeitosError);
@@ -112,11 +121,14 @@ export function useMacValidation() {
       const macUpper = mac.toUpperCase();
       
       // Verificar na tabela equipamentos
-      const { data: equipamentos, error: equipError } = await supabase
+      let equipamentosQuery = supabase
         .from('equipamentos')
         .select('id, nome, mac_address')
-        .eq('mac_address', macUpper)
-        .neq('id', excludeId || '');
+        .eq('mac_address', macUpper);
+      if (excludeId) {
+        equipamentosQuery = equipamentosQuery.neq('id', excludeId);
+      }
+      const { data: equipamentos, error: equipError } = await equipamentosQuery;
 
       if (equipError) {
         console.error('Erro ao verificar equipamentos:', equipError);
@@ -133,11 +145,14 @@ export function useMacValidation() {
       }
 
       // Verificar na tabela caixas_inventario
-      const { data: caixas, error: caixasError } = await supabase
+      let caixasQuery = supabase
         .from('caixas_inventario')
         .select('id, numero_caixa, equipamento, macs')
-        .contains('macs', [macUpper])
-        .neq('id', excludeId || '');
+        .contains('macs', [macUpper]);
+      if (excludeId) {
+        caixasQuery = caixasQuery.neq('id', excludeId);
+      }
+      const { data: caixas, error: caixasError } = await caixasQuery;
 
       if (caixasError) {
         console.error('Erro ao verificar caixas de inventário:', caixasError);
@@ -154,11 +169,14 @@ export function useMacValidation() {
       }
 
       // Verificar na tabela defeitos
-      const { data: defeitos, error: defeitosError } = await supabase
+      let defeitosQuery = supabase
         .from('defeitos')
         .select('id, equipamento, modelo, macs')
-        .contains('macs', [macUpper])
-        .neq('id', excludeId || '');
+        .contains('macs', [macUpper]);
+      if (excludeId) {
+        defeitosQuery = defeitosQuery.neq('id', excludeId);
+      }
+      const { data: defeitos, error: defeitosError } = await defeitosQuery;
 
       if (defeitosError) {
         console.error('Erro ao verificar defeitos:', defeitosError);
@@ -175,11 +193,14 @@ export function useMacValidation() {
       }
 
       // Verificar na tabela recuperacoes
-      const { data: recuperacoes, error: recuperacoesError } = await supabase
+      let recuperacoesQuery = supabase
         .from('recuperacoes')
         .select('id, equipamento, responsavel, macs')
-        .contains('macs', [macUpper])
-        .neq('id', excludeId || '');
+        .contains('macs', [macUpper]);
+      if (excludeId) {
+        recuperacoesQuery = recuperacoesQuery.neq('id', excludeId);
+      }
+      const { data: recuperacoes, error: recuperacoesError } = await recuperacoesQuery;
 
       if (recuperacoesError) {
         console.error('Erro ao verificar recuperações:', recuperacoesError);
